@@ -1,0 +1,20 @@
+<library path="lib/librm_chassis_controllers">
+
+<!--    <class name="rm_chassis_controllers/OmniController"-->
+<!--           type="rm_chassis_controllers::OmniController"-->
+<!--           base_class_type="controller_interface::ControllerInterface">-->
+<!--        <description>-->
+<!--            The OmniController is Robomaster Omnidirectional wheel Chassis controller. It expects a hardware_interface::EffortJointInterface-->
+<!--            type of hardware interface.-->
+<!--        </description>-->
+<!--    </class>-->
+<!--    <class name="rm_chassis_controllers/SwerveController"-->
+<!--           type="rm_chassis_controllers::SwerveController"-->
+<!--           base_class_type="controller_iAnterface::ControllerInterface">-->
+<!--        <description>-->
+<!--            The SwerveController is RoboMaster swerve drive Chassis controller. It expects a hardware_interface::EffortJointInterface-->
+<!--            type of hardware interface.-->
+<!--        </description>-->
+<!--    </class>-->
+
+</library>
