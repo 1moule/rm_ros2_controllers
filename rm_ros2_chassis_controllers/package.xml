@@ -14,8 +14,8 @@
   <depend>realtime_tools</depend>
   <depend>angles</depend>
   <depend>nav_msgs</depend>
-  <depend>rm_ros2_msgs</depend>>
-  <depend>control_toolbox</depend>>
+  <depend>rm_ros2_msgs</depend>
+  <depend>control_toolbox</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
