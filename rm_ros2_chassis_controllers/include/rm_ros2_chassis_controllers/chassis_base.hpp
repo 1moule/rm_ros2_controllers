@@ -11,12 +11,6 @@
 #include <geometry_msgs/msg/twist.hpp>
 
 namespace rm_ros2_chassis_controllers {
-struct Command
-{
-  std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel;
-  std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis;
-  rclcpp::Time stamp;
-};
 class ChassisBase:public controller_interface::ControllerInterface {
 public:
   ChassisBase();
@@ -36,6 +30,9 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
 protected:
+  // virtual void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period);
+  // virtual geometry_msgs::msg::Twist odometry();
+
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
   std::vector<std::string> state_interface_types_;
@@ -56,8 +53,11 @@ protected:
 
   rclcpp::Subscription<rm_ros2_msgs::msg::ChassisCmd>::SharedPtr cmd_chassis_sub_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<Command>> cmd_rt_buffer_;
-  std::shared_ptr<Command> cmd_struct_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd>> cmd_chassis_buffer_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<geometry_msgs::msg::Twist>> cmd_vel_buffer_;
+  std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis_;
+  std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel_;
+  rclcpp::Time stamp_;
 };
 }
 

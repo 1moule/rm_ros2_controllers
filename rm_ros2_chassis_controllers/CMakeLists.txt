@@ -26,13 +26,17 @@ set(CONTROLLER_INCLUDE_DEPENDS
         control_toolbox
 )
 
-# find dependencies
+# Find dependencies
 find_package(ament_cmake REQUIRED)
 foreach (Dependency IN ITEMS ${CONTROLLER_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
 endforeach ()
 
-add_library(  ${PROJECT_NAME} SHARED src/chassis_base.cpp)
+add_library(${PROJECT_NAME} SHARED
+        src/chassis_base.cpp
+        src/omni.cpp
+)
+
 target_include_directories(
         ${PROJECT_NAME}
         PRIVATE
@@ -42,10 +46,15 @@ ament_target_dependencies(${PROJECT_NAME}
         ${CONTROLLER_INCLUDE_DEPENDS}
 )
 
+pluginlib_export_plugin_description_file(controller_interface rm_ros2_chassis_controllers_plugins.xml)
+
 # INSTALL
 install(
         TARGETS ${PROJECT_NAME}
-        DESTINATION lib
+        EXPORT export_${PROJECT_NAME}
+        ARCHIVE DESTINATION lib/${PROJECT_NAME}
+        LIBRARY DESTINATION lib/${PROJECT_NAME}
+        RUNTIME DESTINATION bin
 )
 install(
         DIRECTORY include/
@@ -71,6 +80,5 @@ ament_export_libraries(
         ${PROJECT_NAME}
 )
 ament_export_dependencies(${CONTROLLER_INCLUDE_DEPENDS})
-
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_package()
-

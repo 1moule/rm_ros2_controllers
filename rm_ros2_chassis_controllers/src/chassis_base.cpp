@@ -5,7 +5,7 @@
 #include "rm_ros2_chassis_controllers/chassis_base.hpp"
 
 namespace rm_ros2_chassis_controllers {
-ChassisBase::ChassisBase(): controller_interface::ControllerInterface() {};
+ChassisBase::ChassisBase(): controller_interface::ControllerInterface() {}
 controller_interface::CallbackReturn ChassisBase::on_init()
 {
     // should have error handling
@@ -59,8 +59,7 @@ controller_interface::CallbackReturn ChassisBase::on_configure(const rclcpp_life
     auto cmdChassisCallback =
       [this](const std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> msg) -> void
       {
-          cmd_struct_->cmd_chassis=msg;
-          cmd_rt_buffer_.writeFromNonRT(cmd_struct_);
+          cmd_chassis_buffer_.writeFromNonRT(msg);
       };
     cmd_chassis_sub_ =
       get_node()->create_subscription<rm_ros2_msgs::msg::ChassisCmd>(
@@ -69,9 +68,8 @@ controller_interface::CallbackReturn ChassisBase::on_configure(const rclcpp_life
     // cmd vel
     auto cmdVelCallback =
         [this](const std::shared_ptr<geometry_msgs::msg::Twist> msg)->void {
-            cmd_struct_->cmd_vel=msg;
-            cmd_struct_->stamp=rclcpp::Clock().now();
-            cmd_rt_buffer_.writeFromNonRT(cmd_struct_);
+            cmd_vel_buffer_.writeFromNonRT(msg);
+            stamp_=rclcpp::Clock().now();
         };
     cmd_vel_sub_ =get_node()->create_subscription<geometry_msgs::msg::Twist>(
         "/cmd_vel", rclcpp::SystemDefaultsQoS(),cmdVelCallback);
@@ -104,11 +102,12 @@ controller_interface::CallbackReturn ChassisBase::on_activate(const rclcpp_lifec
 
 controller_interface::return_type ChassisBase::update(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
-    std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis=cmd_rt_buffer_.readFromRT()->get()->cmd_chassis;
-    std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel=cmd_rt_buffer_.readFromRT()->get()->cmd_vel;
+    cmd_chassis_=*cmd_chassis_buffer_.readFromRT();
+    cmd_vel_=*cmd_vel_buffer_.readFromRT();
 
-    // std::cout<<cmd_vel->angular.x<<std::endl;
-
+    if (cmd_vel_!=nullptr&&cmd_chassis_!=nullptr) {
+        std::cout<<"cmd_vel_: "<<cmd_vel_->angular.x<<std::endl;
+    }
     return controller_interface::return_type::OK;
 }
 }
