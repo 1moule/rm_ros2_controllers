@@ -30,7 +30,7 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
 protected:
-  // virtual void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period);
+  virtual void moveJoint()=0;
   // virtual geometry_msgs::msg::Twist odometry();
 
   std::vector<std::string> joint_names_;
@@ -58,6 +58,8 @@ protected:
   std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis_;
   std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel_;
   rclcpp::Time stamp_;
+
+  std::shared_ptr<geometry_msgs::msg::Vector3> vel_cmd_;
 };
 }
 

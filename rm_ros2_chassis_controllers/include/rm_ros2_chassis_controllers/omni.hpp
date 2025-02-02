@@ -9,7 +9,6 @@
 #include "pluginlib/class_list_macros.hpp"
 #include <Eigen/Dense>
 #include <vector>
-#include <array>
 
 namespace rm_ros2_chassis_controllers
 {
@@ -19,14 +18,14 @@ public:
     OmniController();
     controller_interface::CallbackReturn on_init() override;
 private:
-    // void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period) override;
+    void moveJoint() override;
     // geometry_msgs::msg::Twist odometry() override;
 
-    // Eigen::MatrixXd chassis2joints_;
-    //
-    // std::vector<std::array<double,3>> wheels_pos_;
-    // std::vector<double> roller_angles_;
-    // double radius_;
+    std::vector<double> left_front_wheel_pos_,left_back_wheel_pos_,right_front_wheel_pos_,right_back_wheel_pos_;
+    std::vector<std::vector<double>> wheels_pos_;
+    std::vector<double> roller_angles_;
+    Eigen::MatrixXd chassis2joints_;
+    double radius_{},p_{};
 };
 }
 

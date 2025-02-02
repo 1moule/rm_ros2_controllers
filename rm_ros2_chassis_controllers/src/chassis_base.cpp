@@ -14,17 +14,13 @@ controller_interface::CallbackReturn ChassisBase::on_init()
       auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
     state_interface_types_ =
       auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
-
-    // point_interp_.positions.assign(joint_names_.size(), 0);
-    // point_interp_.velocities.assign(joint_names_.size(), 0);
-
+    vel_cmd_=std::make_shared<geometry_msgs::msg::Vector3>();
     return CallbackReturn::SUCCESS;
 }
 
 controller_interface::InterfaceConfiguration ChassisBase::command_interface_configuration() const
 {
     controller_interface::InterfaceConfiguration conf = {controller_interface::interface_configuration_type::INDIVIDUAL, {}};
-
     conf.names.reserve(joint_names_.size() * command_interface_types_.size());
     for (const auto & joint_name : joint_names_)
     {
@@ -33,14 +29,12 @@ controller_interface::InterfaceConfiguration ChassisBase::command_interface_conf
             conf.names.push_back(joint_name + "/" + interface_type);
         }
     }
-
     return conf;
 }
 
 controller_interface::InterfaceConfiguration ChassisBase::state_interface_configuration() const
 {
     controller_interface::InterfaceConfiguration conf = {controller_interface::interface_configuration_type::INDIVIDUAL, {}};
-
     conf.names.reserve(joint_names_.size() * state_interface_types_.size());
     for (const auto & joint_name : joint_names_)
     {
@@ -49,7 +43,6 @@ controller_interface::InterfaceConfiguration ChassisBase::state_interface_config
             conf.names.push_back(joint_name + "/" + interface_type);
         }
     }
-
     return conf;
 }
 
@@ -84,19 +77,16 @@ controller_interface::CallbackReturn ChassisBase::on_activate(const rclcpp_lifec
     joint_position_state_interface_.clear();
     joint_velocity_state_interface_.clear();
     joint_effort_state_interface_.clear();
-
     // assign command interfaces
     for (auto & interface : command_interfaces_)
     {
         command_interface_map_[interface.get_interface_name()]->push_back(interface);
     }
-
     // assign state interfaces
     for (auto & interface : state_interfaces_)
     {
         state_interface_map_[interface.get_interface_name()]->push_back(interface);
     }
-
     return CallbackReturn::SUCCESS;
 }
 
@@ -104,9 +94,11 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time & /*tim
 {
     cmd_chassis_=*cmd_chassis_buffer_.readFromRT();
     cmd_vel_=*cmd_vel_buffer_.readFromRT();
-
-    if (cmd_vel_!=nullptr&&cmd_chassis_!=nullptr) {
-        std::cout<<"cmd_vel_: "<<cmd_vel_->angular.x<<std::endl;
+    if (cmd_vel_!=nullptr) {
+        vel_cmd_->x=cmd_vel_->linear.x;
+        vel_cmd_->y=cmd_vel_->linear.y;
+        vel_cmd_->z=cmd_vel_->angular.z;
+        moveJoint();
     }
     return controller_interface::return_type::OK;
 }
