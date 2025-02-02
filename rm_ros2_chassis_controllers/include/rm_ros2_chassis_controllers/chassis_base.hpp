@@ -13,9 +13,9 @@
 namespace rm_ros2_chassis_controllers {
 struct Command
 {
-  std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel_;
-  std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis_;
-  rclcpp::Time stamp_;
+  std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel;
+  std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis;
+  rclcpp::Time stamp;
 };
 class ChassisBase:public controller_interface::ControllerInterface {
 public:
@@ -55,7 +55,9 @@ protected:
     {"effort", &joint_effort_state_interface_}};
 
   rclcpp::Subscription<rm_ros2_msgs::msg::ChassisCmd>::SharedPtr cmd_chassis_sub_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd>> cmd_rt_buffer_;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<Command>> cmd_rt_buffer_;
+  std::shared_ptr<Command> cmd_struct_;
 };
 }
 

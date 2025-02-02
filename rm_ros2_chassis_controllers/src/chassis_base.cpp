@@ -55,15 +55,26 @@ controller_interface::InterfaceConfiguration ChassisBase::state_interface_config
 
 controller_interface::CallbackReturn ChassisBase::on_configure(const rclcpp_lifecycle::State &)
 {
+    // cmd chassis
     auto cmdChassisCallback =
       [this](const std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> msg) -> void
       {
-          cmd_rt_buffer_.writeFromNonRT(msg);
+          cmd_struct_->cmd_chassis=msg;
+          cmd_rt_buffer_.writeFromNonRT(cmd_struct_);
       };
-
     cmd_chassis_sub_ =
       get_node()->create_subscription<rm_ros2_msgs::msg::ChassisCmd>(
         "/cmd_chassis", rclcpp::SystemDefaultsQoS(), cmdChassisCallback);
+
+    // cmd vel
+    auto cmdVelCallback =
+        [this](const std::shared_ptr<geometry_msgs::msg::Twist> msg)->void {
+            cmd_struct_->cmd_vel=msg;
+            cmd_struct_->stamp=rclcpp::Clock().now();
+            cmd_rt_buffer_.writeFromNonRT(cmd_struct_);
+        };
+    cmd_vel_sub_ =get_node()->create_subscription<geometry_msgs::msg::Twist>(
+        "/cmd_vel", rclcpp::SystemDefaultsQoS(),cmdVelCallback);
 
     return CallbackReturn::SUCCESS;
 }
@@ -91,10 +102,12 @@ controller_interface::CallbackReturn ChassisBase::on_activate(const rclcpp_lifec
     return CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type ChassisBase::update(const rclcpp::Time & time, const rclcpp::Duration & /*period*/)
+controller_interface::return_type ChassisBase::update(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
-    std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis=*cmd_rt_buffer_.readFromRT();
+    std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis=cmd_rt_buffer_.readFromRT()->get()->cmd_chassis;
+    std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel=cmd_rt_buffer_.readFromRT()->get()->cmd_vel;
 
+    // std::cout<<cmd_vel->angular.x<<std::endl;
 
     return controller_interface::return_type::OK;
 }
