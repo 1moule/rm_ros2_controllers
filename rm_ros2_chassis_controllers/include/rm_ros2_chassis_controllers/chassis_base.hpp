@@ -7,6 +7,7 @@
 
 #include <controller_interface/controller_interface.hpp>
 #include <rm_ros2_msgs/msg/chassis_cmd.hpp>
+#include <rm_ros2_common/filters/filters.hpp>
 #include <realtime_tools/realtime_buffer.hpp>
 #include <realtime_tools/realtime_publisher.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -65,10 +66,11 @@ protected:
   std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel_;
   std::shared_ptr<geometry_msgs::msg::Twist> vel_base_;
   std::shared_ptr<geometry_msgs::msg::Vector3> vel_cmd_;
-  rclcpp::Time stamp_;
+  rclcpp::Time update_cmd_time_;
   rclcpp::Time last_publish_time_;
 
-  double publish_rate_{};
+  std::shared_ptr<RampFilter<double>>ramp_x_{}, ramp_y_{}, ramp_w_{};
+  double publish_rate_{},timeout_{};
 };
 }
 

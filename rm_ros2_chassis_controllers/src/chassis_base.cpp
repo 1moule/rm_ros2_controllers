@@ -15,13 +15,19 @@ controller_interface::CallbackReturn ChassisBase::on_init()
     state_interface_types_ =
       auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
     publish_rate_=auto_declare<double>("publish_rate", 100.0);
+    timeout_=auto_declare<double>("timeout", 0.1);
 
     cmd_chassis_=std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd>();
     cmd_vel_=std::make_shared<geometry_msgs::msg::Twist>();
     vel_base_=std::make_shared<geometry_msgs::msg::Twist>();
     vel_cmd_=std::make_shared<geometry_msgs::msg::Vector3>();
 
+    ramp_x_ = std::make_shared<RampFilter<double>>(0, 0.001);
+    ramp_y_ = std::make_shared<RampFilter<double>>(0, 0.001);
+    ramp_w_ = std::make_shared<RampFilter<double>>(0, 0.001);
+
     last_publish_time_ = get_node()->get_clock()->now();
+    update_cmd_time_=get_node()->get_clock()->now();
 
     return CallbackReturn::SUCCESS;
 }
@@ -70,7 +76,7 @@ controller_interface::CallbackReturn ChassisBase::on_configure(const rclcpp_life
     auto cmdVelCallback =
         [this](const std::shared_ptr<geometry_msgs::msg::Twist> msg)->void {
             cmd_vel_buffer_.writeFromNonRT(msg);
-            stamp_=rclcpp::Clock().now();
+            update_cmd_time_=get_node()->get_clock()->now();
         };
     cmd_vel_sub_ =get_node()->create_subscription<geometry_msgs::msg::Twist>(
         "/cmd_vel", rclcpp::SystemDefaultsQoS(),cmdVelCallback);
@@ -113,10 +119,25 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time & time,
 {
     cmd_chassis_=*cmd_chassis_buffer_.readFromRT();
     cmd_vel_=*cmd_vel_buffer_.readFromRT();
-    if (cmd_vel_!=nullptr) {
-        vel_cmd_->x=cmd_vel_->linear.x;
-        vel_cmd_->y=cmd_vel_->linear.y;
-        vel_cmd_->z=cmd_vel_->angular.z;
+    if ((time - update_cmd_time_) > rclcpp::Duration::from_seconds(timeout_))
+    {
+        vel_cmd_->x = 0.;
+        vel_cmd_->y = 0.;
+        vel_cmd_->z = 0.;
+    }
+    else
+    {
+        if (cmd_chassis_!=nullptr) {
+            ramp_x_->setAcc(cmd_chassis_->accel.linear.x);
+            ramp_y_->setAcc(cmd_chassis_->accel.linear.y);
+        }
+        if (cmd_vel_!=nullptr) {
+            ramp_x_->input(cmd_vel_->linear.x);
+            ramp_y_->input(cmd_vel_->linear.y);
+            vel_cmd_->x = ramp_x_->output();
+            vel_cmd_->y = ramp_y_->output();
+            vel_cmd_->z = cmd_vel_->angular.z;
+        }
     }
     moveJoint();
     updateOdom(time);
