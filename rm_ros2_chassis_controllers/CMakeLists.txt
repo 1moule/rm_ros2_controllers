@@ -25,6 +25,7 @@ set(CONTROLLER_INCLUDE_DEPENDS
         rm_ros2_msgs
         rm_ros2_common
         control_toolbox
+        tf2_geometry_msgs
 )
 
 # Find dependencies

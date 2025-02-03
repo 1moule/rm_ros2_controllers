@@ -8,10 +8,14 @@
 #include <controller_interface/controller_interface.hpp>
 #include <rm_ros2_msgs/msg/chassis_cmd.hpp>
 #include <rm_ros2_common/filters/filters.hpp>
+#include <rm_ros2_common/ori_tools.hpp>
+#include <rm_ros2_common/tf_tools.hpp>
 #include <realtime_tools/realtime_buffer.hpp>
 #include <realtime_tools/realtime_publisher.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <angles/angles.h>
 
 namespace rm_ros2_chassis_controllers {
 class ChassisBase:public controller_interface::ControllerInterface {
@@ -33,9 +37,13 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
 protected:
-  virtual void moveJoint()=0;
-  virtual void odometry()=0;
+  void raw();
+  void follow();
+  void recovery();
+  void tfVelToBase(const std::string& from);
   void updateOdom(const rclcpp::Time& time);
+  virtual void odometry()=0;
+  virtual void moveJoint()=0;
 
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
@@ -69,8 +77,18 @@ protected:
   rclcpp::Time update_cmd_time_;
   rclcpp::Time last_publish_time_;
 
-  std::shared_ptr<RampFilter<double>>ramp_x_{}, ramp_y_{}, ramp_w_{};
+  enum
+  {
+    RAW,
+    FOLLOW
+  };
+  int state_ = RAW;
   double publish_rate_{},timeout_{};
+  bool state_changed_ = true;
+  std::shared_ptr<RampFilter<double>>ramp_x_{}, ramp_y_{}, ramp_w_{};
+  std::shared_ptr<RobotStateHandle> robot_state_handle_;
+  std::string follow_source_frame_{}, command_source_frame_{};
+
 };
 }
 

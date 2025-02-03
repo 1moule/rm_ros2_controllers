@@ -25,6 +25,7 @@ controller_interface::CallbackReturn ChassisBase::on_init()
     ramp_x_ = std::make_shared<RampFilter<double>>(0, 0.001);
     ramp_y_ = std::make_shared<RampFilter<double>>(0, 0.001);
     ramp_w_ = std::make_shared<RampFilter<double>>(0, 0.001);
+    robot_state_handle_=std::make_shared<RobotStateHandle>();
 
     last_publish_time_ = get_node()->get_clock()->now();
     update_cmd_time_=get_node()->get_clock()->now();
@@ -130,6 +131,7 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time & time,
         if (cmd_chassis_!=nullptr) {
             ramp_x_->setAcc(cmd_chassis_->accel.linear.x);
             ramp_y_->setAcc(cmd_chassis_->accel.linear.y);
+            ramp_w_->setAcc(cmd_chassis_->accel.angular.z);
         }
         if (cmd_vel_!=nullptr) {
             ramp_x_->input(cmd_vel_->linear.x);
@@ -139,9 +141,87 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time & time,
             vel_cmd_->z = cmd_vel_->angular.z;
         }
     }
-    moveJoint();
+    if (cmd_chassis_!=nullptr) {
+        if (cmd_chassis_->follow_source_frame.empty())
+            follow_source_frame_ = "yaw";
+        else
+            follow_source_frame_ = cmd_chassis_->follow_source_frame;
+        if (cmd_chassis_->command_source_frame.empty())
+            command_source_frame_ = "yaw";
+        else
+            command_source_frame_ = cmd_chassis_->command_source_frame;
+        if (state_ != cmd_chassis_->mode)
+        {
+            state_ = cmd_chassis_->mode;
+            state_changed_ = true;
+        }
+        switch (state_)
+        {
+            case RAW:
+                raw();
+            break;
+            case FOLLOW:
+                follow();
+            break;
+        }
+        ramp_w_->input(vel_cmd_->z);
+        vel_cmd_->z = ramp_w_->output();
+    }
     updateOdom(time);
+    moveJoint();
+
     return controller_interface::return_type::OK;
+}
+
+void ChassisBase::raw() {
+    if (state_changed_)
+    {
+        state_changed_ = false;
+        std::cout<<"[Chassis] Enter RAW"<<std::endl;
+
+        recovery();
+    }
+    tfVelToBase(command_source_frame_);
+}
+
+void ChassisBase::follow(){
+    if (state_changed_)
+    {
+        state_changed_ = false;
+        RCLCPP_INFO(get_node()->get_logger(),"[Chassis] Enter FOLLOW");
+
+        recovery();
+    }
+    tfVelToBase(command_source_frame_);
+    try
+    {
+        double roll{}, pitch{}, yaw{};
+        quatToRPY(robot_state_handle_->lookupTransform("base_link", follow_source_frame_).transform.rotation,
+                  roll, pitch, yaw);
+        double follow_error = angles::shortest_angular_distance(yaw, 0);
+        vel_cmd_->z = -follow_error*0.8 + cmd_chassis_->follow_vel_des;
+    }
+    catch (tf2::TransformException& ex)
+    {
+        RCLCPP_WARN_ONCE(get_node()->get_logger(),"%s", ex.what());
+    }
+}
+
+void ChassisBase::recovery() {
+    ramp_x_->clear(vel_cmd_->x);
+    ramp_y_->clear(vel_cmd_->y);
+    ramp_w_->clear(vel_cmd_->z);
+}
+
+void ChassisBase::tfVelToBase(const std::string& from) {
+    try
+    {
+        tf2::doTransform(*vel_cmd_, *vel_cmd_, robot_state_handle_->lookupTransform("base_link", from));
+    }
+    catch (tf2::TransformException& ex)
+    {
+        RCLCPP_WARN_ONCE(get_node()->get_logger(),"%s", ex.what());
+    }
 }
 
 void ChassisBase::updateOdom(const rclcpp::Time& time){
