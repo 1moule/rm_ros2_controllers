@@ -19,8 +19,7 @@ public:
     controller_interface::CallbackReturn on_init() override;
 private:
     void moveJoint() override;
-    // geometry_msgs::msg::Twist odometry() override;
-
+    void odometry() override;
     std::vector<double> left_front_wheel_pos_,left_back_wheel_pos_,right_front_wheel_pos_,right_back_wheel_pos_;
     std::vector<std::vector<double>> wheels_pos_;
     std::vector<double> roller_angles_;

@@ -8,7 +8,9 @@
 #include <controller_interface/controller_interface.hpp>
 #include <rm_ros2_msgs/msg/chassis_cmd.hpp>
 #include <realtime_tools/realtime_buffer.hpp>
+#include <realtime_tools/realtime_publisher.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 namespace rm_ros2_chassis_controllers {
 class ChassisBase:public controller_interface::ControllerInterface {
@@ -31,7 +33,8 @@ public:
 
 protected:
   virtual void moveJoint()=0;
-  // virtual geometry_msgs::msg::Twist odometry();
+  virtual void odometry()=0;
+  void updateOdom(const rclcpp::Time& time);
 
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
@@ -53,13 +56,19 @@ protected:
 
   rclcpp::Subscription<rm_ros2_msgs::msg::ChassisCmd>::SharedPtr cmd_chassis_sub_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
+  std::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry> > odom_pub_;
+  std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry> > odom_pub_nonrt_;
   realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd>> cmd_chassis_buffer_;
   realtime_tools::RealtimeBuffer<std::shared_ptr<geometry_msgs::msg::Twist>> cmd_vel_buffer_;
+  realtime_tools::RealtimeBuffer<nav_msgs::msg::Odometry> odom_buffer_;
   std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd> cmd_chassis_;
   std::shared_ptr<geometry_msgs::msg::Twist> cmd_vel_;
-  rclcpp::Time stamp_;
-
+  std::shared_ptr<geometry_msgs::msg::Twist> vel_base_;
   std::shared_ptr<geometry_msgs::msg::Vector3> vel_cmd_;
+  rclcpp::Time stamp_;
+  rclcpp::Time last_publish_time_;
+
+  double publish_rate_{};
 };
 }
 

@@ -49,9 +49,16 @@ void OmniController::moveJoint() {
     }
 }
 
-// geometry_msgs::msg::Twist odometry() {
-//
-// }
+void  OmniController::odometry() {
+    Eigen::VectorXd vel_joints(wheels_pos_.size());
+    for (size_t i = 0; i < wheels_pos_.size(); i++)
+        vel_joints[i] = joint_velocity_state_interface_[i].get().get_value();
+    Eigen::Vector3d vel_chassis =
+    (chassis2joints_.transpose() * chassis2joints_).inverse() * chassis2joints_.transpose() * vel_joints;
+    vel_base_->angular.z = vel_chassis(0);
+    vel_base_->linear.x = vel_chassis(1);
+    vel_base_->linear.y = vel_chassis(2);
+}
 }
 
 PLUGINLIB_EXPORT_CLASS(

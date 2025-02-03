@@ -14,7 +14,15 @@ controller_interface::CallbackReturn ChassisBase::on_init()
       auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
     state_interface_types_ =
       auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
+    publish_rate_=auto_declare<double>("publish_rate", 100.0);
+
+    cmd_chassis_=std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd>();
+    cmd_vel_=std::make_shared<geometry_msgs::msg::Twist>();
+    vel_base_=std::make_shared<geometry_msgs::msg::Twist>();
     vel_cmd_=std::make_shared<geometry_msgs::msg::Vector3>();
+
+    last_publish_time_ = get_node()->get_clock()->now();
+
     return CallbackReturn::SUCCESS;
 }
 
@@ -67,6 +75,17 @@ controller_interface::CallbackReturn ChassisBase::on_configure(const rclcpp_life
     cmd_vel_sub_ =get_node()->create_subscription<geometry_msgs::msg::Twist>(
         "/cmd_vel", rclcpp::SystemDefaultsQoS(),cmdVelCallback);
 
+    odom_pub_nonrt_=get_node()->create_publisher<nav_msgs::msg::Odometry>("/odom", rclcpp::SystemDefaultsQoS());
+    odom_pub_=std::make_shared<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(odom_pub_nonrt_);
+    odom_pub_->msg_.header.frame_id = "odom";
+    odom_pub_->msg_.child_frame_id = "base_link";
+    odom_pub_->msg_.twist.covariance = { 0.01, 0., 0., 0., 0., 0., 0.,
+                                            0.01, 0., 0., 0., 0., 0., 0.,
+                                            0.01, 0., 0., 0., 0., 0., 0.,
+                                            0.01, 0., 0., 0., 0., 0., 0.,
+                                            0.01, 0., 0., 0., 0., 0., 0.,
+                                            0.01 };
+
     return CallbackReturn::SUCCESS;
 }
 
@@ -90,7 +109,7 @@ controller_interface::CallbackReturn ChassisBase::on_activate(const rclcpp_lifec
     return CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type ChassisBase::update(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
+controller_interface::return_type ChassisBase::update(const rclcpp::Time & time, const rclcpp::Duration & /*period*/)
 {
     cmd_chassis_=*cmd_chassis_buffer_.readFromRT();
     cmd_vel_=*cmd_vel_buffer_.readFromRT();
@@ -98,8 +117,26 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time & /*tim
         vel_cmd_->x=cmd_vel_->linear.x;
         vel_cmd_->y=cmd_vel_->linear.y;
         vel_cmd_->z=cmd_vel_->angular.z;
-        moveJoint();
     }
+    moveJoint();
+    updateOdom(time);
     return controller_interface::return_type::OK;
 }
+
+void ChassisBase::updateOdom(const rclcpp::Time& time){
+    odometry();
+    if (publish_rate_ > 0.0 && last_publish_time_+rclcpp::Duration::from_seconds(1.0 / publish_rate_) < time)
+    {
+        if (odom_pub_->trylock())
+        {
+          odom_pub_->msg_.header.stamp = time;
+          odom_pub_->msg_.twist.twist.linear.x = vel_base_->linear.x;
+          odom_pub_->msg_.twist.twist.linear.y = vel_base_->linear.y;
+          odom_pub_->msg_.twist.twist.angular.z = vel_base_->angular.z;
+          odom_pub_->unlockAndPublish();
+        }
+        last_publish_time_ = time;
+    }
+}
+
 }
