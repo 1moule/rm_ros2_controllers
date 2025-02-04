@@ -191,7 +191,7 @@ void ChassisBase::raw() {
     if (state_changed_)
     {
         state_changed_ = false;
-        std::cout<<"[Chassis] Enter RAW"<<std::endl;
+        RCLCPP_INFO(get_node()->get_logger(),"[Chassis] Enter RAW");
 
         recovery();
     }

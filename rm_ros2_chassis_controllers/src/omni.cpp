@@ -11,7 +11,6 @@ namespace rm_ros2_chassis_controllers
 OmniController::OmniController() : ChassisBase::ChassisBase() {}
 controller_interface::CallbackReturn OmniController::on_init() {
     ChassisBase::on_init();
-    // wheels_pos_=auto_declare<std::vector<std::array<double,3>>>("wheels_pos",wheels_pos_);
     left_front_wheel_pos_=auto_declare<std::vector<double>>("left_front_wheel_pos",left_front_wheel_pos_);
     right_front_wheel_pos_=auto_declare<std::vector<double>>("right_front_wheel_pos",right_front_wheel_pos_);
     left_back_wheel_pos_=auto_declare<std::vector<double>>("left_back_wheel_pos",left_back_wheel_pos_);
