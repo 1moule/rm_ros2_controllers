@@ -30,7 +30,7 @@ controller_interface::CallbackReturn ChassisBase::on_init()
     ramp_x_ = std::make_shared<RampFilter<double>>(0, 0.001);
     ramp_y_ = std::make_shared<RampFilter<double>>(0, 0.001);
     ramp_w_ = std::make_shared<RampFilter<double>>(0, 0.001);
-    robot_state_handle_=std::make_shared<RobotStateHandle>(get_node()->get_name());
+    tf_handler_=std::make_shared<TfHandler>(get_node()->get_name());
     tf_broadcaster_=std::make_shared<TfRtBroadcaster>(get_node()->get_name());
 
     last_publish_time_ = get_node()->get_clock()->now();
@@ -210,7 +210,7 @@ void ChassisBase::follow(){
     try
     {
         double roll{}, pitch{}, yaw{};
-        quatToRPY(robot_state_handle_->lookupTransform("base_link", follow_source_frame_).transform.rotation,
+        quatToRPY(tf_handler_->lookupTransform("base_link", follow_source_frame_).transform.rotation,
                   roll, pitch, yaw);
         double follow_error = angles::shortest_angular_distance(yaw, 0);
         vel_cmd_->z = -follow_error*0.8 + cmd_chassis_->follow_vel_des;
@@ -230,7 +230,7 @@ void ChassisBase::recovery() {
 void ChassisBase::tfVelToBase(const std::string& from) {
     try
     {
-        tf2::doTransform(*vel_cmd_, *vel_cmd_, robot_state_handle_->lookupTransform("base_link", from));
+        tf2::doTransform(*vel_cmd_, *vel_cmd_, tf_handler_->lookupTransform("base_link", from));
     }
     catch (tf2::TransformException& ex)
     {
@@ -245,7 +245,7 @@ void ChassisBase::updateOdom(const rclcpp::Time& time,const rclcpp::Duration& pe
         geometry_msgs::msg::Vector3 linear_vel_odom, angular_vel_odom;
         try
         {
-            odom2base_ = robot_state_handle_->lookupTransform("odom", "base_link");
+            odom2base_ = tf_handler_->lookupTransform("odom", "base_link");
         }
         catch (tf2::TransformException& ex)
         {

@@ -87,7 +87,7 @@ protected:
   bool enable_odom_tf_ = false;
   bool publish_odom_tf_ = false;
   std::shared_ptr<RampFilter<double>>ramp_x_{}, ramp_y_{}, ramp_w_{};
-  std::shared_ptr<RobotStateHandle> robot_state_handle_;
+  std::shared_ptr<TfHandler> tf_handler_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
   std::string follow_source_frame_{}, command_source_frame_{};
 
