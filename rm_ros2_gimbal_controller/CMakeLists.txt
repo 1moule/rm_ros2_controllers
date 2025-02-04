@@ -20,9 +20,11 @@ set(CONTROLLER_INCLUDE_DEPENDS
         pluginlib
         controller_interface
         realtime_tools
+        angles
         rm_ros2_msgs
         rm_ros2_common
         tf2_geometry_msgs
+        urdf
 )
 
 # Find dependencies

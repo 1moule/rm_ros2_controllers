@@ -1,0 +1,12 @@
+<library path="rm_ros2_gimbal_controller">
+
+    <class name="rm_ros2_gimbal_controller/GimbalController"
+           type="rm_ros2_gimbal_controller::GimbalController"
+           base_class_type="controller_interface::ControllerInterface">
+        <description>
+            The Controller is RoboMaster robot Gimbal controller. It expects a EffortJointInterface type of hardware
+            interface.
+        </description>
+    </class>
+
+</library>

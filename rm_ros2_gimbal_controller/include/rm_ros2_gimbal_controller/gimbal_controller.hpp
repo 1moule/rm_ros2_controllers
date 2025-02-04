@@ -7,7 +7,10 @@
 
 #include <controller_interface/controller_interface.hpp>
 #include <rm_ros2_msgs/msg/gimbal_cmd.hpp>
+#include <rm_ros2_common/tools/tf_tools.hpp>
 #include <realtime_tools/realtime_buffer.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <urdf/urdf/model.h>
 
 namespace rm_ros2_gimbal_controller{
 class GimbalController : public controller_interface::ControllerInterface{
@@ -21,6 +24,12 @@ public:
   controller_interface::CallbackReturn on_activate(const rclcpp_lifecycle::State & previous_state) override;
 
 private:
+  void rate(const rclcpp::Time& time, const rclcpp::Duration& period);
+  void setDes(const rclcpp::Time& time, double yaw_des, double pitch_des);
+  bool setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
+                     const urdf::JointConstSharedPtr& joint_urdf);
+  void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period);
+
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
   std::vector<std::string> state_interface_types_;
@@ -42,7 +51,25 @@ private:
   rclcpp::Subscription<rm_ros2_msgs::msg::GimbalCmd>::SharedPtr cmd_gimbal_sub_;
   realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd>> cmd_gimbal_buffer_;
   std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> cmd_gimbal_;
+  geometry_msgs::msg::TransformStamped odom2gimbal_des_, odom2pitch_, odom2base_, last_odom2base_;
+  std::vector<urdf::JointConstSharedPtr> joint_urdf_;
 
+  enum
+  {
+    RATE,
+    TRACK,
+    DIRECT,
+    TRAJ
+  };
+  int state_ = RATE;
+  double publish_rate_{};
+  bool state_changed_{};
+  bool start_=true;
+  bool pitch_des_in_limit_{};
+  bool yaw_des_in_limit_{};
+  std::shared_ptr<TfHandler> tf_handler_;
+  std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
+  std::string gimbal_des_frame_id_{};
 };
 }
 #endif //GIMBAL_CONTROLLER_HPP
