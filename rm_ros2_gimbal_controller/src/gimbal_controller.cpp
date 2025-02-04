@@ -152,6 +152,8 @@ controller_interface::return_type GimbalController::update(const rclcpp::Time & 
             // case TRAJ:
             //     traj(time);
             // break;
+            default:
+                break;
         }
     }
     moveJoint(time, period);
@@ -182,10 +184,9 @@ void GimbalController::rate(const rclcpp::Time &time, const rclcpp::Duration &pe
 void GimbalController::setDes(const rclcpp::Time& time, double yaw_des, double pitch_des)
 {
   tf2::Quaternion odom2base, odom2gimbal_des;
-  tf2::Quaternion base2gimbal_des;
   tf2::fromMsg(odom2base_.transform.rotation, odom2base);
   odom2gimbal_des.setRPY(0, pitch_des, yaw_des);
-  base2gimbal_des = odom2base.inverse() * odom2gimbal_des;
+  tf2::Quaternion base2gimbal_des = odom2base.inverse() * odom2gimbal_des;
   double roll_temp, base2gimbal_current_des_pitch, base2gimbal_current_des_yaw;
   quatToRPY(toMsg(base2gimbal_des), roll_temp, base2gimbal_current_des_pitch, base2gimbal_current_des_yaw);
   double pitch_real_des, yaw_real_des;
@@ -195,9 +196,8 @@ void GimbalController::setDes(const rclcpp::Time& time, double yaw_des, double p
   {
     double yaw_temp;
     tf2::Quaternion base2new_des;
-    double upper_limit, lower_limit;
-    upper_limit = joint_urdf_[0]->limits ? joint_urdf_[1]->limits->upper : 1e16;
-    lower_limit = joint_urdf_[0]->limits ? joint_urdf_[0]->limits->lower : -1e16;
+    double upper_limit = joint_urdf_[0]->limits ? joint_urdf_[1]->limits->upper : 1e16;
+    double lower_limit = joint_urdf_[0]->limits ? joint_urdf_[0]->limits->lower : -1e16;
     base2new_des.setRPY(0,
                         std::abs(angles::shortest_angular_distance(base2gimbal_current_des_pitch, upper_limit)) <
                                 std::abs(angles::shortest_angular_distance(base2gimbal_current_des_pitch, lower_limit)) ?
@@ -210,9 +210,8 @@ void GimbalController::setDes(const rclcpp::Time& time, double yaw_des, double p
   if (!yaw_des_in_limit_){
     double pitch_temp;
     tf2::Quaternion base2new_des;
-    double upper_limit, lower_limit;
-    upper_limit = joint_urdf_[1]->limits ? joint_urdf_[1]->limits->upper : 1e16;
-    lower_limit = joint_urdf_[1]->limits ? joint_urdf_[1]->limits->lower : -1e16;
+    double upper_limit = joint_urdf_[1]->limits ? joint_urdf_[1]->limits->upper : 1e16;
+    double lower_limit = joint_urdf_[1]->limits ? joint_urdf_[1]->limits->lower : -1e16;
     base2new_des.setRPY(0, base2gimbal_current_des_pitch,
                         std::abs(angles::shortest_angular_distance(base2gimbal_current_des_yaw, upper_limit)) <
                                 std::abs(angles::shortest_angular_distance(base2gimbal_current_des_yaw, lower_limit)) ?
@@ -228,9 +227,8 @@ void GimbalController::setDes(const rclcpp::Time& time, double yaw_des, double p
 bool GimbalController::setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
                                  const urdf::JointConstSharedPtr& joint_urdf)
 {
-    double upper_limit, lower_limit;
-    upper_limit = joint_urdf->limits ? joint_urdf->limits->upper : 1e16;
-    lower_limit = joint_urdf->limits ? joint_urdf->limits->lower : -1e16;
+    double upper_limit = joint_urdf->limits ? joint_urdf->limits->upper : 1e16;
+    double lower_limit = joint_urdf->limits ? joint_urdf->limits->lower : -1e16;
     if ((base2gimbal_current_des <= upper_limit && base2gimbal_current_des >= lower_limit) ||
         (angles::two_pi_complement(base2gimbal_current_des) <= upper_limit &&
          angles::two_pi_complement(base2gimbal_current_des) >= lower_limit))
@@ -240,7 +238,7 @@ bool GimbalController::setDesIntoLimit(double& real_des, double current_des, dou
     return true;
 }
 
-void GimbalController::moveJoint(const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/) {
+void GimbalController::moveJoint(const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/) const {
     geometry_msgs::msg::Vector3 angular_vel_pitch, angular_vel_yaw;
 
     angular_vel_yaw.z = joint_velocity_state_interface_[1].get().get_value();

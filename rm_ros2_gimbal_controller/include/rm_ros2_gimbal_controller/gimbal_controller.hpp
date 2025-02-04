@@ -26,9 +26,9 @@ public:
 private:
   void rate(const rclcpp::Time& time, const rclcpp::Duration& period);
   void setDes(const rclcpp::Time& time, double yaw_des, double pitch_des);
-  bool setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
+  static bool setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
                      const urdf::JointConstSharedPtr& joint_urdf);
-  void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period);
+  void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period) const;
 
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;

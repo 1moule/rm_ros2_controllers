@@ -24,6 +24,7 @@ set(CONTROLLER_INCLUDE_DEPENDS
         rm_ros2_msgs
         rm_ros2_common
         tf2_geometry_msgs
+        control_toolbox
         urdf
 )
 
