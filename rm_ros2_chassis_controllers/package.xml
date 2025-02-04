@@ -4,7 +4,7 @@
   <name>rm_ros2_chassis_controllers</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="1961466188@qq.com">ros2</maintainer>
+  <maintainer email="1961466188@qq.com">guanlin</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

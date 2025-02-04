@@ -3,7 +3,7 @@
 //
 
 #include "rm_ros2_chassis_controllers/chassis_base.hpp"
-#include <rm_ros2_common/ori_tools.hpp>
+#include <rm_ros2_common/tools/ori_tools.hpp>
 #include <angles/angles.h>
 
 namespace rm_ros2_chassis_controllers {
