@@ -3,6 +3,8 @@
 //
 
 #include "rm_ros2_chassis_controllers/chassis_base.hpp"
+#include <rm_ros2_common/ori_tools.hpp>
+#include <angles/angles.h>
 
 namespace rm_ros2_chassis_controllers {
 ChassisBase::ChassisBase(): controller_interface::ControllerInterface() {}
@@ -16,6 +18,9 @@ controller_interface::CallbackReturn ChassisBase::on_init()
       auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
     publish_rate_=auto_declare<double>("publish_rate", 100.0);
     timeout_=auto_declare<double>("timeout", 0.1);
+    max_odom_vel_=auto_declare<double>("max_odom_vel", 999.0);
+    enable_odom_tf_=auto_declare<bool>("enable_odom_tf", false);
+    publish_odom_tf_=auto_declare<bool>("publish_odom_tf", false);
 
     cmd_chassis_=std::shared_ptr<rm_ros2_msgs::msg::ChassisCmd>();
     cmd_vel_=std::make_shared<geometry_msgs::msg::Twist>();
@@ -25,7 +30,8 @@ controller_interface::CallbackReturn ChassisBase::on_init()
     ramp_x_ = std::make_shared<RampFilter<double>>(0, 0.001);
     ramp_y_ = std::make_shared<RampFilter<double>>(0, 0.001);
     ramp_w_ = std::make_shared<RampFilter<double>>(0, 0.001);
-    robot_state_handle_=std::make_shared<RobotStateHandle>();
+    robot_state_handle_=std::make_shared<RobotStateHandle>(get_node()->get_name());
+    tf_broadcaster_=std::make_shared<TfRtBroadcaster>(get_node()->get_name());
 
     last_publish_time_ = get_node()->get_clock()->now();
     update_cmd_time_=get_node()->get_clock()->now();
@@ -92,6 +98,14 @@ controller_interface::CallbackReturn ChassisBase::on_configure(const rclcpp_life
                                             0.01, 0., 0., 0., 0., 0., 0.,
                                             0.01, 0., 0., 0., 0., 0., 0.,
                                             0.01 };
+    if (enable_odom_tf_)
+    {
+        odom2base_.header.frame_id = "odom";
+        odom2base_.header.stamp = get_node()->get_clock()->now();
+        odom2base_.child_frame_id = "base_link";
+        odom2base_.transform.rotation.w = 1;
+        tf_broadcaster_->sendTransform(odom2base_);
+    }
 
     return CallbackReturn::SUCCESS;
 }
@@ -116,7 +130,7 @@ controller_interface::CallbackReturn ChassisBase::on_activate(const rclcpp_lifec
     return CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type ChassisBase::update(const rclcpp::Time & time, const rclcpp::Duration & /*period*/)
+controller_interface::return_type ChassisBase::update(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
     cmd_chassis_=*cmd_chassis_buffer_.readFromRT();
     cmd_vel_=*cmd_vel_buffer_.readFromRT();
@@ -167,7 +181,7 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time & time,
         ramp_w_->input(vel_cmd_->z);
         vel_cmd_->z = ramp_w_->output();
     }
-    updateOdom(time);
+    updateOdom(time,period);
     moveJoint();
 
     return controller_interface::return_type::OK;
@@ -224,8 +238,48 @@ void ChassisBase::tfVelToBase(const std::string& from) {
     }
 }
 
-void ChassisBase::updateOdom(const rclcpp::Time& time){
+void ChassisBase::updateOdom(const rclcpp::Time& time,const rclcpp::Duration& period){
     odometry();
+    if (enable_odom_tf_)
+    {
+        geometry_msgs::msg::Vector3 linear_vel_odom, angular_vel_odom;
+        try
+        {
+            odom2base_ = robot_state_handle_->lookupTransform("odom", "base_link");
+        }
+        catch (tf2::TransformException& ex)
+        {
+            tf_broadcaster_->sendTransform(odom2base_);
+            RCLCPP_WARN_ONCE(get_node()->get_logger(),"%s", ex.what());
+            return;
+        }
+        odom2base_.header.stamp = time;
+        // integral vel to pos and angle
+        tf2::doTransform(vel_base_->linear, linear_vel_odom, odom2base_);
+        tf2::doTransform(vel_base_->angular, angular_vel_odom, odom2base_);
+        double length =
+            std::sqrt(std::pow(linear_vel_odom.x, 2) + std::pow(linear_vel_odom.y, 2) + std::pow(linear_vel_odom.z, 2));
+        if (length < max_odom_vel_)
+        {
+            // avoid nan vel
+            odom2base_.transform.translation.x += linear_vel_odom.x * period.seconds();
+            odom2base_.transform.translation.y += linear_vel_odom.y * period.seconds();
+            odom2base_.transform.translation.z += linear_vel_odom.z * period.seconds();
+        }
+        length =
+            std::sqrt(std::pow(angular_vel_odom.x, 2) + std::pow(angular_vel_odom.y, 2) + std::pow(angular_vel_odom.z, 2));
+        if (length > 0.001)
+        {  // avoid nan quat
+            tf2::Quaternion odom2base_quat, trans_quat;
+            tf2::fromMsg(odom2base_.transform.rotation, odom2base_quat);
+            trans_quat.setRotation(tf2::Vector3(angular_vel_odom.x / length, angular_vel_odom.y / length,
+                                                angular_vel_odom.z / length),
+                                   length * period.seconds());
+            odom2base_quat = trans_quat * odom2base_quat;
+            odom2base_quat.normalize();
+            odom2base_.transform.rotation = tf2::toMsg(odom2base_quat);
+        }
+    }
     if (publish_rate_ > 0.0 && last_publish_time_+rclcpp::Duration::from_seconds(1.0 / publish_rate_) < time)
     {
         if (odom_pub_->trylock())
@@ -236,6 +290,8 @@ void ChassisBase::updateOdom(const rclcpp::Time& time){
           odom_pub_->msg_.twist.twist.angular.z = vel_base_->angular.z;
           odom_pub_->unlockAndPublish();
         }
+        if (enable_odom_tf_ && publish_odom_tf_)
+            tf_broadcaster_->sendTransform(odom2base_);
         last_publish_time_ = time;
     }
 }
