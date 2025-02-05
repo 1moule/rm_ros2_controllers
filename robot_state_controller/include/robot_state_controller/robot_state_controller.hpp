@@ -9,6 +9,7 @@
 #include <rm_ros2_common/tools/tf_tools.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/buffer.h>
+#include <realtime_tools/realtime_buffer.hpp>
 #include <kdl/tree.hpp>
 #include <urdf/urdf/model.h>
 
@@ -39,8 +40,6 @@ public:
 
 private:
   void addChildren(KDL::SegmentMap::const_iterator segment);
-  // void tfSubCallback(const tf2_msgs::msg::TFMessageConstPtr& msg);
-  // void staticSubCallback(const tf2_msgs::TFMessageConstPtr& msg);
 
   //  hardware interface
   std::vector<std::string> joint_names_;
@@ -58,24 +57,23 @@ private:
                                { "effort", &joint_effort_state_interface_ } };
 
   urdf::Model model_{};
-  std::map<std::string, urdf::JointMimicSharedPtr>* mimic_{};
-  unsigned int num_hw_joints_{};
-  bool use_tf_static_{};
-  bool ignore_timestamp_{};
-  double publish_rate_{};
+  // bool use_tf_static_{};
+  // bool ignore_timestamp_{};
+  // double publish_rate_{};
   rclcpp::Time last_update_;
   rclcpp::Time last_publish_time_;
 
   // std::map<std::string, hardware_interface::JointStateHandle> jnt_states_;
   std::map<std::string, SegmentPair> segments_, segments_fixed_;
 
-  tf2_ros::Buffer* tf_buffer_{};
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_{};
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
-  // rm_common::StaticTfRtBroadcaster static_tf_broadcaster_;
-  // Do not use tf2_ros::TransformListener because it will lead to setTransform calling twice when publishing the
-  // transform rclcpp::Subscription<> tf_sub_; ros::Subscriber tf_static_sub_;
-  // realtime_tools::RealtimeBuffer<tf2_msgs::TFMessage> tf_msg_; realtime_tools::RealtimeBuffer<tf2_msgs::TFMessage>
-  // tf_static_msg_;
+  std::shared_ptr<StaticTfRtBroadcaster> static_tf_broadcaster_;
+
+  rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_sub_;
+  rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_static_sub_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<tf2_msgs::msg::TFMessage>> tf_sub_buffer_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<tf2_msgs::msg::TFMessage>> tf_static_sub_buffer_;
 };
 }  // namespace robot_state_controller
 #endif  // ROBOT_STATE_CONTROLLER_HPP

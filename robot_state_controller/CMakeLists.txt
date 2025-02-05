@@ -44,7 +44,7 @@ ament_target_dependencies(${PROJECT_NAME}
         ${CONTROLLER_INCLUDE_DEPENDS}
 )
 
-#pluginlib_export_plugin_description_file(controller_interface rm_ros2_gimbal_controller_plugin.xml)
+pluginlib_export_plugin_description_file(controller_interface robot_state_controller_plugin.xml)
 
 # INSTALL
 install(
