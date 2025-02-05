@@ -57,23 +57,23 @@ private:
                                { "effort", &joint_effort_state_interface_ } };
 
   urdf::Model model_{};
-  // bool use_tf_static_{};
-  // bool ignore_timestamp_{};
-  // double publish_rate_{};
+  bool use_tf_static_{};
+  double publish_rate_{};
   rclcpp::Time last_update_;
   rclcpp::Time last_publish_time_;
 
-  // std::map<std::string, hardware_interface::JointStateHandle> jnt_states_;
+  std::map<std::string, std::reference_wrapper<hardware_interface::LoanedStateInterface>> jnt_states_;
   std::map<std::string, SegmentPair> segments_, segments_fixed_;
 
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_{};
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{ nullptr };
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
   std::shared_ptr<StaticTfRtBroadcaster> static_tf_broadcaster_;
 
   rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_sub_;
   rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_static_sub_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<tf2_msgs::msg::TFMessage>> tf_sub_buffer_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<tf2_msgs::msg::TFMessage>> tf_static_sub_buffer_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<tf2_msgs::msg::TFMessage>> tf_msg_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<tf2_msgs::msg::TFMessage>> tf_static_msg_;
 };
 }  // namespace robot_state_controller
 #endif  // ROBOT_STATE_CONTROLLER_HPP
