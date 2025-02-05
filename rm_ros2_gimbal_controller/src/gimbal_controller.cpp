@@ -20,6 +20,7 @@ controller_interface::CallbackReturn GimbalController::on_init()
       auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
     publish_rate_=auto_declare<double>("publish_rate", 100.0);
 
+    pid_pos_yaw_=std::make_shared<control_tools::Pid>(get_node(),"yaw.pid_pos");
     tf_handler_=std::make_shared<TfHandler>(get_node()->get_name());
     tf_broadcaster_=std::make_shared<TfRtBroadcaster>(get_node()->get_name());
 
@@ -96,6 +97,9 @@ controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp
     cmd_gimbal_sub_ =
       get_node()->create_subscription<rm_ros2_msgs::msg::GimbalCmd>(
         "/cmd_gimbal", rclcpp::SystemDefaultsQoS(), cmdGimbalCallback);
+    state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
+     std::string(get_node()->get_name()) + "/pos_state", rclcpp::SystemDefaultsQoS());
+    rt_state_pub_=std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(state_pub_);
 
     return CallbackReturn::SUCCESS;
 }
@@ -149,9 +153,9 @@ controller_interface::return_type GimbalController::update(const rclcpp::Time & 
             // case DIRECT:
             //     direct(time);
             // break;
-            // case TRAJ:
-            //     traj(time);
-            // break;
+            case TRAJ:
+                traj(time);
+            break;
             default:
                 break;
         }
@@ -179,6 +183,15 @@ void GimbalController::rate(const rclcpp::Time &time, const rclcpp::Duration &pe
         quatToRPY(odom2gimbal_des_.transform.rotation, roll, pitch, yaw);
         setDes(time, yaw + period.seconds() * cmd_gimbal_->rate_yaw, pitch + period.seconds() * cmd_gimbal_->rate_pitch);
     }
+}
+
+void GimbalController::traj(const rclcpp::Time &time) {
+    if (state_changed_)
+    {  // on enter
+        state_changed_ = false;
+        RCLCPP_INFO(get_node()->get_logger(),"[Gimbal] Enter TRAJ");
+    }
+    setDes(time, cmd_gimbal_->traj_yaw, cmd_gimbal_->traj_pitch);
 }
 
 void GimbalController::setDes(const rclcpp::Time& time, double yaw_des, double pitch_des)
@@ -238,7 +251,7 @@ bool GimbalController::setDesIntoLimit(double& real_des, double current_des, dou
     return true;
 }
 
-void GimbalController::moveJoint(const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/) const {
+void GimbalController::moveJoint(const rclcpp::Time& /*time*/, const rclcpp::Duration& period) const {
     geometry_msgs::msg::Vector3 angular_vel_pitch, angular_vel_yaw;
 
     angular_vel_yaw.z = joint_velocity_state_interface_[1].get().get_value();
@@ -250,8 +263,20 @@ void GimbalController::moveJoint(const rclcpp::Time& /*time*/, const rclcpp::Dur
     double yaw_angle_error = angles::shortest_angular_distance(yaw_real, yaw_des);
     double pitch_angle_error = angles::shortest_angular_distance(pitch_real, pitch_des);
 
-    joint_effort_command_interface_[0].get().set_value(15.0*pitch_angle_error);
-    joint_effort_command_interface_[1].get().set_value(15.0*yaw_angle_error);
+    joint_effort_command_interface_[0].get().set_value(5.0*pitch_angle_error);
+    joint_effort_command_interface_[1].get().set_value(pid_pos_yaw_->computeCommand(yaw_angle_error,period));
+
+    if (rt_state_pub_) {
+        if (rt_state_pub_->trylock()) {
+            rt_state_pub_->msg_.header.stamp = get_node()->get_clock()->now();
+            // rt_state_pub_->msg_.error = yaw_angle_error;
+            rt_state_pub_->msg_.set_point = yaw_des;
+            // rt_state_pub_->msg_.set_point_dot = cmd_gimbal_->rate_yaw;
+            rt_state_pub_->msg_.process_value = yaw_real;
+            // rt_state_pub_->msg_.command = pid_pos_yaw_->getCurrentCommand();
+            rt_state_pub_->unlockAndPublish();
+        }
+    }
 }
 }
 

@@ -7,7 +7,9 @@
 
 #include <controller_interface/controller_interface.hpp>
 #include <rm_ros2_msgs/msg/gimbal_cmd.hpp>
+#include <rm_ros2_msgs/msg/gimbal_pos_state.hpp>
 #include <rm_ros2_common/tools/tf_tools.hpp>
+#include <rm_ros2_common/tools/control_tools.hpp>
 #include <realtime_tools/realtime_buffer.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <urdf/urdf/model.h>
@@ -25,11 +27,13 @@ public:
 
 private:
   void rate(const rclcpp::Time& time, const rclcpp::Duration& period);
+  void traj(const rclcpp::Time& time);
   void setDes(const rclcpp::Time& time, double yaw_des, double pitch_des);
   static bool setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
                      const urdf::JointConstSharedPtr& joint_urdf);
   void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period) const;
 
+  //  hardware interface
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
   std::vector<std::string> state_interface_types_;
@@ -48,9 +52,13 @@ private:
     {"velocity", &joint_velocity_state_interface_},
     {"effort", &joint_effort_state_interface_}};
 
+  //  ROS interface
   rclcpp::Subscription<rm_ros2_msgs::msg::GimbalCmd>::SharedPtr cmd_gimbal_sub_;
   realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd>> cmd_gimbal_buffer_;
+  std::shared_ptr<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>> rt_state_pub_;
+  std::shared_ptr<rclcpp::Publisher<rm_ros2_msgs::msg::GimbalPosState>> state_pub_;
   std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> cmd_gimbal_;
+  std::shared_ptr<control_tools::Pid> pid_pos_yaw_;
   geometry_msgs::msg::TransformStamped odom2gimbal_des_, odom2pitch_, odom2base_, last_odom2base_;
   std::vector<urdf::JointConstSharedPtr> joint_urdf_;
 
