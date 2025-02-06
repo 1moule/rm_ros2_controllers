@@ -16,7 +16,6 @@ RobotStateController::RobotStateController() : ControllerInterface::ControllerIn
 controller_interface::CallbackReturn RobotStateController::on_init()
 {
   // should have error handling
-  joint_names_ = auto_declare<std::vector<std::string>>("joints", joint_names_);
   command_interface_types_ = auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
   state_interface_types_ = auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
   publish_rate_ = auto_declare<double>("publish_rate", 50.0);
@@ -24,8 +23,8 @@ controller_interface::CallbackReturn RobotStateController::on_init()
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_node()->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-  tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node()->get_name());
-  static_tf_broadcaster_ = std::make_shared<StaticTfRtBroadcaster>(get_node()->get_name());
+  tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
+  static_tf_broadcaster_ = std::make_shared<StaticTfRtBroadcaster>(get_node());
 
   last_update_ = get_node()->get_clock()->now();
   last_publish_time_ = get_node()->get_clock()->now();
@@ -44,6 +43,13 @@ controller_interface::CallbackReturn RobotStateController::on_init()
     return CallbackReturn::ERROR;
   }
   addChildren(tree.getRootSegment());
+  for (auto& item : segments_)
+  {
+    if (item.first.find("roller") == std::string::npos)
+    {
+      joint_names_.push_back(item.first);
+    }
+  }
 
   return CallbackReturn::SUCCESS;
 }
@@ -116,8 +122,9 @@ controller_interface::CallbackReturn RobotStateController::on_activate(const rcl
     state_interface_map_[interface.get_interface_name()]->push_back(interface);
     if (interface.get_interface_name() == "position")
     {
-      jnt_states_.insert(std::make_pair<std::string, std::reference_wrapper<hardware_interface::LoanedStateInterface>>(
-          interface.get_name().c_str(), interface));
+      if (interface.get_name().find("roller") == std::string::npos)
+        jnt_states_.insert(std::make_pair<std::string, std::reference_wrapper<hardware_interface::LoanedStateInterface>>(
+            interface.get_name().c_str(), interface));
     }
   }
   return CallbackReturn::SUCCESS;
@@ -151,11 +158,7 @@ controller_interface::return_type RobotStateController::update(const rclcpp::Tim
     if (jnt_iter != jnt_states_.end())
       tf_transform = tf2::kdlToTransform(item.second.segment.pose(jnt_iter->second.get().get_value()));
     else
-    {
-      RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 10,
-                           "Joint state with name: \"%s\" was received but not found in URDF", item.first.c_str());
       continue;
-    }
     tf_transform.header.stamp = time;
     tf_transform.header.frame_id = stripSlash(item.second.root);
     tf_transform.child_frame_id = stripSlash(item.second.tip);
