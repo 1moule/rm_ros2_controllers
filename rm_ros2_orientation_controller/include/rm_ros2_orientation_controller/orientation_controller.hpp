@@ -8,7 +8,7 @@
 #include <controller_interface/controller_interface.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/imu.hpp>
-#include <realtime_tools/realtime_buffer.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <rm_ros2_common/tools/tf_tools.hpp>
 
 namespace rm_ros2_orientation_controller
@@ -25,8 +25,8 @@ public:
   controller_interface::CallbackReturn on_activate(const rclcpp_lifecycle::State& previous_state) override;
 
 private:
-  bool getTransform(const rclcpp::Time& time, geometry_msgs::msg::TransformStamped& source2target, const double x,
-                    const double y, const double z, const double w);
+  bool getTransform(geometry_msgs::msg::TransformStamped& source2target, const double x, const double y, const double z,
+                    const double w);
 
   //  hardware interface
   std::string imu_name_;
@@ -34,9 +34,10 @@ private:
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > imu_state_interface_;
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_data_sub_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<sensor_msgs::msg::Imu> > imu_data_buffer_;
   rclcpp::Time last_imu_update_time_;
+  geometry_msgs::msg::TransformStamped source2target_msg_;
 
+  double timeout_{};
   std::shared_ptr<TfHandler> tf_handler_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
   std::string frame_source_, frame_target_;
