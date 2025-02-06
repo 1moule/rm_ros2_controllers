@@ -27,7 +27,6 @@ public:
 private:
   bool getTransform(const rclcpp::Time& time, geometry_msgs::msg::TransformStamped& source2target, const double x,
                     const double y, const double z, const double w);
-  // void imuDataCallback(const sensor_msgs::msg::Imu::ConstPtr& msg);
 
   //  hardware interface
   std::string imu_name_;
@@ -36,6 +35,7 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_data_sub_;
   realtime_tools::RealtimeBuffer<std::shared_ptr<sensor_msgs::msg::Imu> > imu_data_buffer_;
+  rclcpp::Time last_imu_update_time_;
 
   std::shared_ptr<TfHandler> tf_handler_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;

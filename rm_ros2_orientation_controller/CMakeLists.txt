@@ -20,9 +20,6 @@ set(CONTROLLER_INCLUDE_DEPENDS
         controller_interface
         realtime_tools
         rm_ros2_common
-        tf2_kdl
-        kdl_parser
-        urdf
 )
 
 # Find dependencies
