@@ -9,10 +9,10 @@
 #include <rm_ros2_msgs/msg/gimbal_cmd.hpp>
 #include <rm_ros2_msgs/msg/gimbal_pos_state.hpp>
 #include <rm_ros2_common/tools/tf_tools.hpp>
-#include <rm_ros2_common/tools/control_tools.hpp>
 #include <realtime_tools/realtime_buffer.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <urdf/urdf/model.h>
+#include <control_toolbox/pid_ros.hpp>
 
 namespace rm_ros2_gimbal_controller
 {
@@ -66,7 +66,7 @@ private:
   std::shared_ptr<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState> > rt_state_pub_;
   std::shared_ptr<rclcpp::Publisher<rm_ros2_msgs::msg::GimbalPosState> > state_pub_;
   std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> cmd_gimbal_;
-  std::shared_ptr<control_tools::Pid> pid_pos_yaw_;
+  std::shared_ptr<control_toolbox::PidROS> pid_yaw_;
   geometry_msgs::msg::TransformStamped odom2gimbal_des_, odom2pitch_, odom2base_, last_odom2base_;
   std::vector<urdf::JointConstSharedPtr> joint_urdf_;
 

@@ -21,7 +21,11 @@ controller_interface::CallbackReturn GimbalController::on_init()
   state_interface_types_ = auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
   publish_rate_ = auto_declare<double>("publish_rate", 100.0);
 
-  pid_pos_yaw_ = std::make_shared<control_tools::Pid>(get_node(), "yaw.pid_pos");
+  pid_yaw_ = std::make_shared<control_toolbox::PidROS>(get_node()->get_node_base_interface(),
+                                                       get_node()->get_node_logging_interface(),
+                                                       get_node()->get_node_parameters_interface(),
+                                                       get_node()->get_node_topics_interface(), "yaw.pid_pos", true);
+  pid_yaw_->initPid();
   tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
 
@@ -272,7 +276,7 @@ void GimbalController::moveJoint(const rclcpp::Time& /*time*/, const rclcpp::Dur
   double pitch_angle_error = angles::shortest_angular_distance(pitch_real, pitch_des);
 
   joint_effort_command_interface_[0].get().set_value(5.0 * pitch_angle_error);
-  joint_effort_command_interface_[1].get().set_value(pid_pos_yaw_->computeCommand(yaw_angle_error, period));
+  joint_effort_command_interface_[1].get().set_value(pid_yaw_->computeCommand(yaw_angle_error, period));
 
   if (rt_state_pub_)
   {
