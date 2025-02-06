@@ -53,7 +53,7 @@ controller_interface::InterfaceConfiguration OrientationController::state_interf
 
 controller_interface::CallbackReturn OrientationController::on_configure(const rclcpp_lifecycle::State&)
 {
-  auto imuDataCallback = [this](const std::shared_ptr<sensor_msgs::msg::Imu> msg) -> void {
+  auto imuDataCallback = [this](const std::shared_ptr<sensor_msgs::msg::Imu> /*msg*/) -> void {
     last_imu_update_time_ = get_node()->get_clock()->now();
   };
   imu_data_sub_ = get_node()->create_subscription<sensor_msgs::msg::Imu>("/" + imu_name_, rclcpp::SystemDefaultsQoS(),
