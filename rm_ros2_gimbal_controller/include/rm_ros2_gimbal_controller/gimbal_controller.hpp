@@ -46,13 +46,16 @@ private:
   void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period) const;
 
   //  hardware interface
+  std::string imu_name_;
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
   std::vector<std::string> state_interface_types_;
+  std::vector<std::string> imu_interface_types_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface> > joint_effort_command_interface_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > joint_position_state_interface_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > joint_velocity_state_interface_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > joint_effort_state_interface_;
+  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > imu_state_interface_;
   std::unordered_map<std::string, std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface> >*>
       command_interface_map_ = { { "effort", &joint_effort_command_interface_ } };
   std::unordered_map<std::string, std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> >*>
@@ -84,6 +87,7 @@ private:
   bool start_ = true;
   bool pitch_des_in_limit_{};
   bool yaw_des_in_limit_{};
+  bool has_imu_ = false;
   std::shared_ptr<TfHandler> tf_handler_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
   std::string gimbal_des_frame_id_{};
