@@ -14,6 +14,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <control_toolbox/pid_ros.hpp>
 
 namespace rm_ros2_chassis_controllers
 {
@@ -35,7 +36,7 @@ public:
 
 protected:
   void raw();
-  void follow();
+  void follow(const rclcpp::Duration& period);
   void recovery();
   void tfVelToBase(const std::string& from);
   void updateOdom(const rclcpp::Time& time, const rclcpp::Duration& period);
@@ -69,6 +70,7 @@ protected:
   std::shared_ptr<geometry_msgs::msg::Vector3> vel_cmd_;
   rclcpp::Time update_cmd_time_;
   rclcpp::Time last_publish_time_;
+  std::shared_ptr<control_toolbox::PidROS> pid_follow_;
   geometry_msgs::msg::TransformStamped odom2base_;
 
   enum

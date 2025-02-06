@@ -34,6 +34,12 @@ controller_interface::CallbackReturn ChassisBase::on_init()
   tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
 
+  pid_follow_ = std::make_shared<control_toolbox::PidROS>(get_node()->get_node_base_interface(),
+                                                          get_node()->get_node_logging_interface(),
+                                                          get_node()->get_node_parameters_interface(),
+                                                          get_node()->get_node_topics_interface(), "pid_follow", true);
+  pid_follow_->initPid();
+
   last_publish_time_ = get_node()->get_clock()->now();
   update_cmd_time_ = get_node()->get_clock()->now();
 
@@ -174,7 +180,7 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time& time, 
         raw();
         break;
       case FOLLOW:
-        follow();
+        follow(period);
         break;
     }
     ramp_w_->input(vel_cmd_->z);
@@ -198,7 +204,7 @@ void ChassisBase::raw()
   tfVelToBase(command_source_frame_);
 }
 
-void ChassisBase::follow()
+void ChassisBase::follow(const rclcpp::Duration& period)
 {
   if (state_changed_)
   {
@@ -213,7 +219,7 @@ void ChassisBase::follow()
     double roll{}, pitch{}, yaw{};
     quatToRPY(tf_handler_->lookupTransform("base_link", follow_source_frame_).transform.rotation, roll, pitch, yaw);
     double follow_error = angles::shortest_angular_distance(yaw, 0);
-    vel_cmd_->z = -follow_error * 0.8 + cmd_chassis_->follow_vel_des;
+    vel_cmd_->z = pid_follow_->computeCommand(-follow_error, period) + cmd_chassis_->follow_vel_des;
   }
   catch (tf2::TransformException& ex)
   {
