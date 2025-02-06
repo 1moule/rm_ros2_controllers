@@ -22,8 +22,8 @@ controller_interface::CallbackReturn GimbalController::on_init()
   publish_rate_ = auto_declare<double>("publish_rate", 100.0);
 
   pid_pos_yaw_ = std::make_shared<control_tools::Pid>(get_node(), "yaw.pid_pos");
-  tf_handler_ = std::make_shared<TfHandler>(get_node()->get_name());
-  tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node()->get_name());
+  tf_handler_ = std::make_shared<TfHandler>(get_node());
+  tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
 
   // get URDF info about joint
   urdf::Model urdf;

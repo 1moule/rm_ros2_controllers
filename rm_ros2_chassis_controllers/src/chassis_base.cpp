@@ -31,8 +31,8 @@ controller_interface::CallbackReturn ChassisBase::on_init()
   ramp_x_ = std::make_shared<RampFilter<double>>(0, 0.001);
   ramp_y_ = std::make_shared<RampFilter<double>>(0, 0.001);
   ramp_w_ = std::make_shared<RampFilter<double>>(0, 0.001);
-  tf_handler_ = std::make_shared<TfHandler>(get_node()->get_name());
-  tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node()->get_name());
+  tf_handler_ = std::make_shared<TfHandler>(get_node());
+  tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
 
   last_publish_time_ = get_node()->get_clock()->now();
   update_cmd_time_ = get_node()->get_clock()->now();
