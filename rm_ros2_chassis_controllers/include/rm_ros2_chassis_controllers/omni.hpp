@@ -6,7 +6,6 @@
 #define OMNI_HPP
 
 #include "rm_ros2_chassis_controllers/chassis_base.hpp"
-#include "pluginlib/class_list_macros.hpp"
 #include <Eigen/Dense>
 #include <vector>
 

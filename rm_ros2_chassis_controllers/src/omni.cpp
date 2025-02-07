@@ -3,8 +3,8 @@
 //
 
 #include "rm_ros2_chassis_controllers/omni.hpp"
+#include <pluginlib/class_list_macros.hpp>
 #include <string>
-// #include <Eigen/QR>
 
 namespace rm_ros2_chassis_controllers
 {
