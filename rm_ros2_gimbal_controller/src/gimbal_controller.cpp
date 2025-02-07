@@ -24,7 +24,7 @@ controller_interface::CallbackReturn GimbalController::on_init()
   {
     has_imu_ = true;
     imu_name_ = auto_declare<std::string>("imu_name", imu_name_);
-    imu_interface_types_ = auto_declare<std::vector<std::string>>("imu_interfaces", imu_interface_types_);
+    imu_sensor_ = std::make_shared<semantic_components::IMUSensor>(semantic_components::IMUSensor(imu_name_));
   }
 
   pid_pos_pitch_ = std::make_shared<control_toolbox::PidROS>(
@@ -113,10 +113,8 @@ controller_interface::InterfaceConfiguration GimbalController::state_interface_c
   }
   if (has_imu_)
   {
-    for (const auto& interface_type : imu_interface_types_)
-    {
-      conf.names.push_back(imu_name_ + "/" + interface_type);
-    }
+    for (const auto& interface : imu_sensor_->get_state_interface_names())
+      conf.names.push_back(interface);
   }
 
   return conf;
@@ -149,7 +147,6 @@ controller_interface::CallbackReturn GimbalController::on_activate(const rclcpp_
   joint_position_state_interface_.clear();
   joint_velocity_state_interface_.clear();
   joint_effort_state_interface_.clear();
-  imu_state_interface_.clear();
   // assign command interfaces
   for (auto& interface : command_interfaces_)
   {
@@ -158,13 +155,12 @@ controller_interface::CallbackReturn GimbalController::on_activate(const rclcpp_
   // assign state interfaces
   for (auto& interface : state_interfaces_)
   {
-    if (has_imu_ && interface.get_prefix_name() == imu_name_)
-    {
-      imu_state_interface_.emplace_back(interface);
-    }
-    else
+    if ((has_imu_ && interface.get_prefix_name() != imu_name_) || !has_imu_)
       state_interface_map_[interface.get_interface_name()]->push_back(interface);
   }
+  if (has_imu_)
+    imu_sensor_->assign_loaned_state_interfaces(state_interfaces_);
+
   return CallbackReturn::SUCCESS;
 }
 
@@ -305,9 +301,9 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
   if (has_imu_)
   {
     geometry_msgs::msg::Vector3 gyro;
-    gyro.x = imu_state_interface_[4].get().get_value();
-    gyro.y = imu_state_interface_[5].get().get_value();
-    gyro.z = imu_state_interface_[6].get().get_value();
+    gyro.x = imu_sensor_->get_angular_velocity()[0];
+    gyro.y = imu_sensor_->get_angular_velocity()[1];
+    gyro.z = imu_sensor_->get_angular_velocity()[2];
     try
     {
       tf2::doTransform(gyro, angular_vel_pitch,
