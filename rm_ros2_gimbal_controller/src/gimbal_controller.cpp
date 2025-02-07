@@ -16,14 +16,16 @@ GimbalController::GimbalController() : ControllerInterface::ControllerInterface(
 controller_interface::CallbackReturn GimbalController::on_init()
 {
   // should have error handling
-  imu_name_ = auto_declare<std::string>("imu_name", imu_name_);
   joint_names_ = auto_declare<std::vector<std::string>>("joints", joint_names_);
   command_interface_types_ = auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
   state_interface_types_ = auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
-  imu_interface_types_ = auto_declare<std::vector<std::string>>("imu_interfaces", imu_interface_types_);
   publish_rate_ = auto_declare<double>("publish_rate", 100.0);
   if (get_node()->has_parameter("imu_name"))
+  {
     has_imu_ = true;
+    imu_name_ = auto_declare<std::string>("imu_name", imu_name_);
+    imu_interface_types_ = auto_declare<std::vector<std::string>>("imu_interfaces", imu_interface_types_);
+  }
 
   pid_yaw_ = std::make_shared<control_toolbox::PidROS>(get_node()->get_node_base_interface(),
                                                        get_node()->get_node_logging_interface(),
@@ -97,10 +99,14 @@ controller_interface::InterfaceConfiguration GimbalController::state_interface_c
       conf.names.push_back(joint_name + "/" + interface_type);
     }
   }
-  for (const auto& interface_type : imu_interface_types_)
+  if (has_imu_)
   {
-    conf.names.push_back(imu_name_ + "/" + interface_type);
+    for (const auto& interface_type : imu_interface_types_)
+    {
+      conf.names.push_back(imu_name_ + "/" + interface_type);
+    }
   }
+
   return conf;
 }
 
@@ -135,7 +141,7 @@ controller_interface::CallbackReturn GimbalController::on_activate(const rclcpp_
   // assign state interfaces
   for (auto& interface : state_interfaces_)
   {
-    if (interface.get_prefix_name() == imu_name_)
+    if (has_imu_ && interface.get_prefix_name() == imu_name_)
     {
       imu_state_interface_.emplace_back(interface);
     }
