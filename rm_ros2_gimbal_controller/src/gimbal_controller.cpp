@@ -256,7 +256,7 @@ void GimbalController::setDes(const rclcpp::Time& time, double yaw_des, double p
   {
     double yaw_temp;
     tf2::Quaternion base2new_des;
-    double upper_limit = joint_urdf_[0]->limits ? joint_urdf_[1]->limits->upper : 1e16;
+    double upper_limit = joint_urdf_[0]->limits ? joint_urdf_[0]->limits->upper : 1e16;
     double lower_limit = joint_urdf_[0]->limits ? joint_urdf_[0]->limits->lower : -1e16;
     base2new_des.setRPY(0,
                         std::abs(angles::shortest_angular_distance(base2gimbal_current_des_pitch, upper_limit)) <
