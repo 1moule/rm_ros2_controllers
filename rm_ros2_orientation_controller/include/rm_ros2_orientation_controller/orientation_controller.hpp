@@ -10,10 +10,11 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <rm_ros2_common/tools/tf_tools.hpp>
+#include <semantic_components/imu_sensor.hpp>
 
 namespace rm_ros2_orientation_controller
 {
-class OrientationController : public controller_interface::ControllerInterface
+class OrientationController final : public controller_interface::ControllerInterface
 {
 public:
   OrientationController();
@@ -28,18 +29,18 @@ private:
   bool getTransform(geometry_msgs::msg::TransformStamped& source2target, const double x, const double y, const double z,
                     const double w);
 
-  //  hardware interface
+  // hardware interface
   std::string imu_name_;
-  std::vector<std::string> imu_interface_types_;
-  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > imu_state_interface_;
+  std::shared_ptr<semantic_components::IMUSensor> imu_sensor_;
 
+  // ROS interface
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_data_sub_;
   rclcpp::Time last_imu_update_time_;
+  std::shared_ptr<TfHandler> tf_handler_;
+  std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
   geometry_msgs::msg::TransformStamped source2target_msg_;
 
   double timeout_{};
-  std::shared_ptr<TfHandler> tf_handler_;
-  std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
   std::string frame_source_, frame_target_;
 };
 }  // namespace rm_ros2_orientation_controller

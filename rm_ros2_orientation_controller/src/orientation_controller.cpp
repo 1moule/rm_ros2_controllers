@@ -18,8 +18,8 @@ controller_interface::CallbackReturn OrientationController::on_init()
   frame_source_ = auto_declare<std::string>("frame_source", frame_source_);
   frame_target_ = auto_declare<std::string>("frame_target", frame_target_);
   timeout_ = auto_declare<double>("timeout", 0.1);
-  imu_interface_types_ = auto_declare<std::vector<std::string>>("imu_interfaces", imu_interface_types_);
 
+  imu_sensor_ = std::make_shared<semantic_components::IMUSensor>(semantic_components::IMUSensor(imu_name_));
   tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
 
@@ -42,12 +42,7 @@ controller_interface::InterfaceConfiguration OrientationController::command_inte
 controller_interface::InterfaceConfiguration OrientationController::state_interface_configuration() const
 {
   controller_interface::InterfaceConfiguration conf = { controller_interface::interface_configuration_type::INDIVIDUAL,
-                                                        {} };
-  conf.names.reserve(imu_interface_types_.size());
-  for (const auto& interface_type : imu_interface_types_)
-  {
-    conf.names.push_back(imu_name_ + "/" + interface_type);
-  }
+                                                        imu_sensor_->get_state_interface_names() };
   return conf;
 }
 
@@ -63,16 +58,8 @@ controller_interface::CallbackReturn OrientationController::on_configure(const r
 
 controller_interface::CallbackReturn OrientationController::on_activate(const rclcpp_lifecycle::State&)
 {
-  // clear out vectors in case of restart
-  imu_state_interface_.clear();
   // assign state interfaces
-  for (auto& interface : state_interfaces_)
-  {
-    if (interface.get_prefix_name() == imu_name_)
-    {
-      imu_state_interface_.emplace_back(interface);
-    }
-  }
+  imu_sensor_->assign_loaned_state_interfaces(state_interfaces_);
   return CallbackReturn::SUCCESS;
 }
 
@@ -87,9 +74,8 @@ controller_interface::return_type OrientationController::update(const rclcpp::Ti
     source2target_msg_.header.stamp = time;
     source2target_msg_.header.stamp.nanosec += 1;
     source2target_msg_ =
-        getTransform(source2target, imu_state_interface_[1].get().get_value(),
-                     imu_state_interface_[2].get().get_value(), imu_state_interface_[3].get().get_value(),
-                     imu_state_interface_[0].get().get_value()) ?
+        getTransform(source2target, imu_sensor_->get_orientation()[0], imu_sensor_->get_orientation()[1],
+                     imu_sensor_->get_orientation()[2], imu_sensor_->get_orientation()[3]) ?
             source2target :
             source2target_msg_;
     tf_handler_->setTransform(source2target_msg_, "rm_orientation_controller");
