@@ -289,7 +289,7 @@ void ChassisBase::updateOdom(const rclcpp::Time& time, const rclcpp::Duration& p
       odom2base_.transform.rotation = tf2::toMsg(odom2base_quat);
     }
   }
-  if (publish_rate_ > 0.0 && last_publish_time_ + rclcpp::Duration::from_seconds(1.0 / publish_rate_) < time)
+  if (publish_rate_ > 0.0 && last_publish_time_ + rclcpp::Duration::from_seconds(1.0 / publish_rate_) <= time)
   {
     if (odom_pub_->trylock())
     {
