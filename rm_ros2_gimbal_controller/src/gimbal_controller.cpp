@@ -27,11 +27,15 @@ controller_interface::CallbackReturn GimbalController::on_init()
     imu_interface_types_ = auto_declare<std::vector<std::string>>("imu_interfaces", imu_interface_types_);
   }
 
-  pid_yaw_ = std::make_shared<control_toolbox::PidROS>(get_node()->get_node_base_interface(),
-                                                       get_node()->get_node_logging_interface(),
-                                                       get_node()->get_node_parameters_interface(),
-                                                       get_node()->get_node_topics_interface(), "yaw.pid_pos", true);
-  pid_yaw_->initPid();
+  pid_pos_yaw_ = std::make_shared<control_toolbox::PidROS>(
+      get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
+      get_node()->get_node_parameters_interface(), get_node()->get_node_topics_interface(), "yaw.pid_pos", true);
+  pid_vel_yaw_ = std::make_shared<control_toolbox::PidROS>(
+      get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
+      get_node()->get_node_parameters_interface(), get_node()->get_node_topics_interface(), "yaw.pid_vel", true);
+  pid_pos_yaw_->initPid();
+  pid_vel_yaw_->initPid();
+
   tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
 
@@ -282,32 +286,63 @@ bool GimbalController::setDesIntoLimit(double& real_des, double current_des, dou
   return true;
 }
 
-void GimbalController::moveJoint(const rclcpp::Time& /*time*/, const rclcpp::Duration& period) const
+void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period) const
 {
   geometry_msgs::msg::Vector3 angular_vel_pitch, angular_vel_yaw;
-
-  angular_vel_yaw.z = joint_velocity_state_interface_[1].get().get_value();
-  angular_vel_pitch.y = joint_velocity_state_interface_[0].get().get_value();
-
+  if (has_imu_)
+  {
+    geometry_msgs::msg::Vector3 gyro;
+    gyro.x = imu_state_interface_[4].get().get_value();
+    gyro.y = imu_state_interface_[5].get().get_value();
+    gyro.z = imu_state_interface_[6].get().get_value();
+    try
+    {
+      tf2::doTransform(gyro, angular_vel_pitch,
+                       tf_handler_->lookupTransform(joint_urdf_[0]->child_link_name, imu_name_, time));
+      tf2::doTransform(gyro, angular_vel_yaw,
+                       tf_handler_->lookupTransform(joint_urdf_[1]->child_link_name, imu_name_, time));
+    }
+    catch (tf2::TransformException& ex)
+    {
+      RCLCPP_WARN_ONCE(get_node()->get_logger(), "%s", ex.what());
+      return;
+    }
+  }
+  else
+  {
+    angular_vel_yaw.z = joint_velocity_state_interface_[1].get().get_value();
+    angular_vel_pitch.y = joint_velocity_state_interface_[0].get().get_value();
+  }
   double roll_real, pitch_real, yaw_real, roll_des, pitch_des, yaw_des;
   quatToRPY(odom2gimbal_des_.transform.rotation, roll_des, pitch_des, yaw_des);
   quatToRPY(odom2pitch_.transform.rotation, roll_real, pitch_real, yaw_real);
   double yaw_angle_error = angles::shortest_angular_distance(yaw_real, yaw_des);
   double pitch_angle_error = angles::shortest_angular_distance(pitch_real, pitch_des);
-
+  double yaw_vel_des = 0.;
+  if (state_ == RATE)
+  {
+    yaw_vel_des = cmd_gimbal_->rate_yaw;
+    // pitch_vel_des = cmd_gimbal_->rate_pitch;
+  }
+  // if (!pitch_des_in_limit_)
+  //   pitch_vel_des = 0.;
+  if (!yaw_des_in_limit_)
+    yaw_vel_des = 0.;
+  double cmd_yaw = pid_pos_yaw_->computeCommand(yaw_angle_error, period);
+  cmd_yaw = pid_vel_yaw_->computeCommand(cmd_yaw + yaw_vel_des - angular_vel_yaw.z, period);
   joint_effort_command_interface_[0].get().set_value(5.0 * pitch_angle_error);
-  joint_effort_command_interface_[1].get().set_value(pid_yaw_->computeCommand(yaw_angle_error, period));
+  joint_effort_command_interface_[1].get().set_value(cmd_yaw);
 
   if (rt_state_pub_)
   {
     if (rt_state_pub_->trylock())
     {
       rt_state_pub_->msg_.header.stamp = get_node()->get_clock()->now();
-      // rt_state_pub_->msg_.error = yaw_angle_error;
+      rt_state_pub_->msg_.error = yaw_angle_error;
       rt_state_pub_->msg_.set_point = yaw_des;
-      // rt_state_pub_->msg_.set_point_dot = cmd_gimbal_->rate_yaw;
+      rt_state_pub_->msg_.set_point_dot = yaw_vel_des;
       rt_state_pub_->msg_.process_value = yaw_real;
-      // rt_state_pub_->msg_.command = pid_pos_yaw_->getCurrentCommand();
+      // rt_state_pub_->msg_.command = cmd;
       rt_state_pub_->unlockAndPublish();
     }
   }

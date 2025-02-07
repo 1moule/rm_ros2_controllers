@@ -69,7 +69,7 @@ private:
   std::shared_ptr<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState> > rt_state_pub_;
   std::shared_ptr<rclcpp::Publisher<rm_ros2_msgs::msg::GimbalPosState> > state_pub_;
   std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> cmd_gimbal_;
-  std::shared_ptr<control_toolbox::PidROS> pid_yaw_;
+  std::shared_ptr<control_toolbox::PidROS> pid_pos_yaw_, pid_vel_yaw_;
   geometry_msgs::msg::TransformStamped odom2gimbal_des_, odom2pitch_, odom2base_, last_odom2base_;
   std::vector<urdf::JointConstSharedPtr> joint_urdf_;
 
