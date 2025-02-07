@@ -65,8 +65,7 @@ private:
   std::map<std::string, std::reference_wrapper<hardware_interface::LoanedStateInterface>> jnt_states_;
   std::map<std::string, SegmentPair> segments_, segments_fixed_;
 
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{ nullptr };
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<TfHandler> tf_handler_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
   std::shared_ptr<StaticTfRtBroadcaster> static_tf_broadcaster_;
 

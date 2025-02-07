@@ -21,8 +21,7 @@ controller_interface::CallbackReturn RobotStateController::on_init()
   publish_rate_ = auto_declare<double>("publish_rate", 50.0);
   use_tf_static_ = auto_declare<bool>("use_tf_static", true);
 
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_node()->get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
   static_tf_broadcaster_ = std::make_shared<StaticTfRtBroadcaster>(get_node());
 
@@ -146,7 +145,7 @@ controller_interface::return_type RobotStateController::update(const rclcpp::Tim
   {
     RCLCPP_WARN(get_node()->get_logger(),
                 "Moved backwards in time (probably because ROS clock was reset), clear all tf buffer!");
-    tf_buffer_->clear();
+    tf_handler_->clear();
   }
   last_update_ = time;
   std::vector<geometry_msgs::msg::TransformStamped> tf_transforms, tf_static_transforms;
@@ -175,10 +174,10 @@ controller_interface::return_type RobotStateController::update(const rclcpp::Tim
     tf_static_transforms.push_back(tf_transform);
   }
   for (const auto& tran : tf_transforms)
-    tf_buffer_->setTransform(tran, "robot_state_controller", false);
+    tf_handler_->setTransform(tran, "robot_state_controller", false);
   for (const auto& tran : tf_static_transforms)
-    tf_buffer_->setTransform(tran, "robot_state_controller", true);
-  if (publish_rate_ > 0.0 && last_publish_time_ + rclcpp::Duration::from_seconds(1.0 / publish_rate_) < time)
+    tf_handler_->setTransform(tran, "robot_state_controller", true);
+  if (publish_rate_ > 0.0 && last_publish_time_ + rclcpp::Duration::from_seconds(1.0 / publish_rate_) <= time)
   {
     tf_broadcaster_->sendTransform(tf_transforms);
     if (use_tf_static_)
@@ -198,7 +197,7 @@ controller_interface::return_type RobotStateController::update(const rclcpp::Tim
       try
       {
         if (item.header.stamp !=
-            tf_buffer_->lookupTransform(item.child_frame_id, item.header.frame_id, item.header.stamp).header.stamp)
+            tf_handler_->lookupTransform(item.child_frame_id, item.header.frame_id, item.header.stamp).header.stamp)
           tf_transforms.push_back(item);
       }
       catch (tf2::TransformException& ex)
@@ -215,7 +214,7 @@ controller_interface::return_type RobotStateController::update(const rclcpp::Tim
       try
       {
         if (item.header.stamp !=
-            tf_buffer_->lookupTransform(item.child_frame_id, item.header.frame_id, item.header.stamp).header.stamp)
+            tf_handler_->lookupTransform(item.child_frame_id, item.header.frame_id, item.header.stamp).header.stamp)
           tf_static_transforms.push_back(item);
       }
       catch (tf2::TransformException& ex)
@@ -228,9 +227,9 @@ controller_interface::return_type RobotStateController::update(const rclcpp::Tim
   // tf_msg_.readFromRT()->get()->transforms.clear();
   // tf_static_msg_.readFromRT()->get()->transforms.clear();
   for (const auto& tran : tf_transforms)
-    tf_buffer_->setTransform(tran, "outside", false);
+    tf_handler_->setTransform(tran, "outside", false);
   for (const auto& tran : tf_static_transforms)
-    tf_buffer_->setTransform(tran, "outside", true);
+    tf_handler_->setTransform(tran, "outside", true);
 
   return controller_interface::return_type::OK;
 }
