@@ -27,12 +27,20 @@ controller_interface::CallbackReturn GimbalController::on_init()
     imu_interface_types_ = auto_declare<std::vector<std::string>>("imu_interfaces", imu_interface_types_);
   }
 
+  pid_pos_pitch_ = std::make_shared<control_toolbox::PidROS>(
+      get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
+      get_node()->get_node_parameters_interface(), get_node()->get_node_topics_interface(), "pitch.pid_pos", true);
+  pid_vel_pitch_ = std::make_shared<control_toolbox::PidROS>(
+      get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
+      get_node()->get_node_parameters_interface(), get_node()->get_node_topics_interface(), "pitch.pid_vel", true);
   pid_pos_yaw_ = std::make_shared<control_toolbox::PidROS>(
       get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
       get_node()->get_node_parameters_interface(), get_node()->get_node_topics_interface(), "yaw.pid_pos", true);
   pid_vel_yaw_ = std::make_shared<control_toolbox::PidROS>(
       get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
       get_node()->get_node_parameters_interface(), get_node()->get_node_topics_interface(), "yaw.pid_vel", true);
+  pid_pos_pitch_->initPid();
+  pid_vel_pitch_->initPid();
   pid_pos_yaw_->initPid();
   pid_vel_yaw_->initPid();
 
@@ -122,9 +130,14 @@ controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp
   };
   cmd_gimbal_sub_ = get_node()->create_subscription<rm_ros2_msgs::msg::GimbalCmd>(
       "/cmd_gimbal", rclcpp::SystemDefaultsQoS(), cmdGimbalCallback);
-  state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
-      std::string(get_node()->get_name()) + "/pos_state", rclcpp::SystemDefaultsQoS());
-  rt_state_pub_ = std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(state_pub_);
+  pitch_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
+      std::string(get_node()->get_name()) + "/pitch/pos_state", rclcpp::SystemDefaultsQoS());
+  yaw_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
+      std::string(get_node()->get_name()) + "/yaw/pos_state", rclcpp::SystemDefaultsQoS());
+  pitch_rt_pos_state_pub_ =
+      std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(pitch_pos_state_pub_);
+  yaw_rt_pos_state_pub_ =
+      std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(yaw_pos_state_pub_);
 
   return CallbackReturn::SUCCESS;
 }
@@ -191,8 +204,8 @@ controller_interface::return_type GimbalController::update(const rclcpp::Time& t
       default:
         break;
     }
+    moveJoint(time, period);
   }
-  moveJoint(time, period);
   return controller_interface::return_type::OK;
 }
 
@@ -310,40 +323,55 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
   }
   else
   {
-    angular_vel_yaw.z = joint_velocity_state_interface_[1].get().get_value();
     angular_vel_pitch.y = joint_velocity_state_interface_[0].get().get_value();
+    angular_vel_yaw.z = joint_velocity_state_interface_[1].get().get_value();
   }
   double roll_real, pitch_real, yaw_real, roll_des, pitch_des, yaw_des;
   quatToRPY(odom2gimbal_des_.transform.rotation, roll_des, pitch_des, yaw_des);
   quatToRPY(odom2pitch_.transform.rotation, roll_real, pitch_real, yaw_real);
-  double yaw_angle_error = angles::shortest_angular_distance(yaw_real, yaw_des);
   double pitch_angle_error = angles::shortest_angular_distance(pitch_real, pitch_des);
-  double yaw_vel_des = 0.;
+  double yaw_angle_error = angles::shortest_angular_distance(yaw_real, yaw_des);
+  double pitch_vel_des = 0, yaw_vel_des = 0.;
   if (state_ == RATE)
   {
+    pitch_vel_des = cmd_gimbal_->rate_pitch;
     yaw_vel_des = cmd_gimbal_->rate_yaw;
-    // pitch_vel_des = cmd_gimbal_->rate_pitch;
   }
-  // if (!pitch_des_in_limit_)
-  //   pitch_vel_des = 0.;
+  if (!pitch_des_in_limit_)
+    pitch_vel_des = 0.;
   if (!yaw_des_in_limit_)
     yaw_vel_des = 0.;
+  double cmd_pitch = pid_pos_pitch_->computeCommand(pitch_angle_error, period);
   double cmd_yaw = pid_pos_yaw_->computeCommand(yaw_angle_error, period);
+  cmd_pitch = pid_vel_pitch_->computeCommand(cmd_pitch + pitch_vel_des - angular_vel_pitch.y, period);
   cmd_yaw = pid_vel_yaw_->computeCommand(cmd_yaw + yaw_vel_des - angular_vel_yaw.z, period);
-  joint_effort_command_interface_[0].get().set_value(5.0 * pitch_angle_error);
+  joint_effort_command_interface_[0].get().set_value(cmd_pitch);
   joint_effort_command_interface_[1].get().set_value(cmd_yaw);
 
-  if (rt_state_pub_)
+  if (pitch_rt_pos_state_pub_)
   {
-    if (rt_state_pub_->trylock())
+    if (pitch_rt_pos_state_pub_->trylock())
     {
-      rt_state_pub_->msg_.header.stamp = get_node()->get_clock()->now();
-      rt_state_pub_->msg_.error = yaw_angle_error;
-      rt_state_pub_->msg_.set_point = yaw_des;
-      rt_state_pub_->msg_.set_point_dot = yaw_vel_des;
-      rt_state_pub_->msg_.process_value = yaw_real;
-      // rt_state_pub_->msg_.command = cmd;
-      rt_state_pub_->unlockAndPublish();
+      pitch_rt_pos_state_pub_->msg_.header.stamp = get_node()->get_clock()->now();
+      pitch_rt_pos_state_pub_->msg_.error = pitch_angle_error;
+      pitch_rt_pos_state_pub_->msg_.set_point = pitch_des;
+      pitch_rt_pos_state_pub_->msg_.set_point_dot = pitch_vel_des;
+      pitch_rt_pos_state_pub_->msg_.process_value = pitch_real;
+      pitch_rt_pos_state_pub_->msg_.command = cmd_pitch;
+      pitch_rt_pos_state_pub_->unlockAndPublish();
+    }
+  }
+  if (yaw_rt_pos_state_pub_)
+  {
+    if (yaw_rt_pos_state_pub_->trylock())
+    {
+      yaw_rt_pos_state_pub_->msg_.header.stamp = get_node()->get_clock()->now();
+      yaw_rt_pos_state_pub_->msg_.error = yaw_angle_error;
+      yaw_rt_pos_state_pub_->msg_.set_point = yaw_des;
+      yaw_rt_pos_state_pub_->msg_.set_point_dot = yaw_vel_des;
+      yaw_rt_pos_state_pub_->msg_.process_value = yaw_real;
+      yaw_rt_pos_state_pub_->msg_.command = cmd_yaw;
+      yaw_rt_pos_state_pub_->unlockAndPublish();
     }
   }
 }

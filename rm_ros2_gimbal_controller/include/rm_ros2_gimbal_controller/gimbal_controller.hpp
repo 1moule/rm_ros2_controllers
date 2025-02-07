@@ -51,25 +51,26 @@ private:
   std::vector<std::string> command_interface_types_;
   std::vector<std::string> state_interface_types_;
   std::vector<std::string> imu_interface_types_;
-  std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface> > joint_effort_command_interface_;
-  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > joint_position_state_interface_;
-  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > joint_velocity_state_interface_;
-  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > joint_effort_state_interface_;
-  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> > imu_state_interface_;
-  std::unordered_map<std::string, std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface> >*>
+  std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface>> joint_effort_command_interface_;
+  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> joint_position_state_interface_;
+  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> joint_velocity_state_interface_;
+  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> joint_effort_state_interface_;
+  std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> imu_state_interface_;
+  std::unordered_map<std::string, std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface>>*>
       command_interface_map_ = { { "effort", &joint_effort_command_interface_ } };
-  std::unordered_map<std::string, std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface> >*>
+  std::unordered_map<std::string, std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>>*>
       state_interface_map_ = { { "position", &joint_position_state_interface_ },
                                { "velocity", &joint_velocity_state_interface_ },
                                { "effort", &joint_effort_state_interface_ } };
 
   //  ROS interface
   rclcpp::Subscription<rm_ros2_msgs::msg::GimbalCmd>::SharedPtr cmd_gimbal_sub_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> > cmd_gimbal_buffer_;
-  std::shared_ptr<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState> > rt_state_pub_;
-  std::shared_ptr<rclcpp::Publisher<rm_ros2_msgs::msg::GimbalPosState> > state_pub_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd>> cmd_gimbal_buffer_;
+  std::shared_ptr<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>> pitch_rt_pos_state_pub_,
+      yaw_rt_pos_state_pub_;
+  std::shared_ptr<rclcpp::Publisher<rm_ros2_msgs::msg::GimbalPosState>> pitch_pos_state_pub_, yaw_pos_state_pub_;
   std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> cmd_gimbal_;
-  std::shared_ptr<control_toolbox::PidROS> pid_pos_yaw_, pid_vel_yaw_;
+  std::shared_ptr<control_toolbox::PidROS> pid_pos_pitch_, pid_vel_pitch_, pid_pos_yaw_, pid_vel_yaw_;
   geometry_msgs::msg::TransformStamped odom2gimbal_des_, odom2pitch_, odom2base_, last_odom2base_;
   std::vector<urdf::JointConstSharedPtr> joint_urdf_;
 
