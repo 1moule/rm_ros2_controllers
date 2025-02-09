@@ -16,16 +16,14 @@ if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif ()
 
 set(CONTROLLER_INCLUDE_DEPENDS
-        rclcpp
-        pluginlib
         controller_interface
-        realtime_tools
-        angles
-        rm_ros2_msgs
-        rm_ros2_common
         control_toolbox
-        urdf
+        rm_ros2_common
+        rm_ros2_msgs
+        pluginlib
         nav_msgs
+        angles
+        urdf
 )
 
 # Find dependencies
