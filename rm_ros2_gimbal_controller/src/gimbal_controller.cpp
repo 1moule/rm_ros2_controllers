@@ -20,12 +20,16 @@ controller_interface::CallbackReturn GimbalController::on_init()
   command_interface_types_ = auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
   state_interface_types_ = auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
   publish_rate_ = auto_declare<double>("publish_rate", 100.0);
+  b_ = auto_declare<double>("b", 0.0);
   if (get_node()->has_parameter("imu_name"))
   {
     has_imu_ = true;
     imu_name_ = auto_declare<std::string>("imu_name", imu_name_);
     imu_sensor_ = std::make_shared<semantic_components::IMUSensor>(semantic_components::IMUSensor(imu_name_));
   }
+
+  cmd_gimbal_ = std::make_shared<rm_ros2_msgs::msg::GimbalCmd>();
+  odom_ = std::make_shared<nav_msgs::msg::Odometry>();
 
   pid_pos_pitch_ = std::make_shared<control_toolbox::PidROS>(
       get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
@@ -128,6 +132,11 @@ controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp
   };
   cmd_gimbal_sub_ = get_node()->create_subscription<rm_ros2_msgs::msg::GimbalCmd>(
       "/cmd_gimbal", rclcpp::SystemDefaultsQoS(), cmdGimbalCallback);
+  auto odomCallback = [this](const std::shared_ptr<nav_msgs::msg::Odometry> msg) -> void {
+    odom_buffer_.writeFromNonRT(msg);
+  };
+  odom_sub_ =
+      get_node()->create_subscription<nav_msgs::msg::Odometry>("/odom", rclcpp::SystemDefaultsQoS(), odomCallback);
   pitch_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
       std::string(get_node()->get_name()) + "/pitch/pos_state", rclcpp::SystemDefaultsQoS());
   yaw_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
@@ -136,6 +145,29 @@ controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp
       std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(pitch_pos_state_pub_);
   yaw_rt_pos_state_pub_ =
       std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(yaw_pos_state_pub_);
+
+  auto on_parameter_event_callback = [this](const std::vector<rclcpp::Parameter>& parameters) {
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+    for (auto& parameter : parameters)
+    {
+      const std::string& param_name = parameter.get_name();
+      try
+      {
+        if (param_name == "b")
+        {
+          b_ = parameter.get_value<double>();
+        }
+      }
+      catch (const rclcpp::exceptions::InvalidParameterTypeException& e)
+      {
+        RCLCPP_INFO_STREAM(get_node()->get_logger(), "Please use the right type: " << e.what());
+      }
+    }
+    return result;
+  };
+  parameter_callback_ =
+      get_node()->get_node_parameters_interface()->add_on_set_parameters_callback(on_parameter_event_callback);
 
   return CallbackReturn::SUCCESS;
 }
@@ -167,6 +199,7 @@ controller_interface::CallbackReturn GimbalController::on_activate(const rclcpp_
 controller_interface::return_type GimbalController::update(const rclcpp::Time& time, const rclcpp::Duration& period)
 {
   cmd_gimbal_ = *cmd_gimbal_buffer_.readFromRT();
+  odom_ = *odom_buffer_.readFromRT();
   try
   {
     odom2pitch_ = tf_handler_->lookupTransform("odom", joint_urdf_[0]->child_link_name);
@@ -295,7 +328,17 @@ bool GimbalController::setDesIntoLimit(double& real_des, double current_des, dou
   return true;
 }
 
-void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period) const
+double GimbalController::frictionFeedforward() const
+{
+  if (odom_ != nullptr)
+  {
+    return b_ * odom_->twist.twist.angular.z;
+  }
+  else
+    return 0.;
+}
+
+void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period)
 {
   geometry_msgs::msg::Vector3 angular_vel_pitch, angular_vel_yaw;
   if (has_imu_)
@@ -342,7 +385,7 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
   cmd_pitch = pid_vel_pitch_->computeCommand(cmd_pitch + pitch_vel_des - angular_vel_pitch.y, period);
   cmd_yaw = pid_vel_yaw_->computeCommand(cmd_yaw + yaw_vel_des - angular_vel_yaw.z, period);
   joint_effort_command_interface_[0].get().set_value(cmd_pitch);
-  joint_effort_command_interface_[1].get().set_value(cmd_yaw);
+  joint_effort_command_interface_[1].get().set_value(cmd_yaw + frictionFeedforward());
 
   if (pitch_rt_pos_state_pub_)
   {
