@@ -1,17 +1,20 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="2">
-  <name>rm_ros2_controllers</name>
-  <version>0.0.0</version>
-  <description>Meta package that contains package for RoboMaster.</description>
-  <maintainer email="1961466188@qq.com">Guanlin Chen</maintainer>
-  <license>BSD</license>
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <!-- packages in project -->
-  <exec_depend>rm_ros2_chassis_controllers</exec_depend>
-  <exec_depend>test</exec_depend>>
+    <name>rm_ros2_controllers</name>
+    <version>0.0.0</version>
+    <description>Meta package that contains package for RoboMaster.</description>
+    <maintainer email="1961466188@qq.com">Guanlin Chen</maintainer>
+    <license>BSD</license>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <!-- packages in project -->
+    <exec_depend>rm_ros2_chassis_controllers</exec_depend>
+    <exec_depend>rm_ros2_gimbal_controller</exec_depend>
+    <exec_depend>rm_ros2_orientation_controller</exec_depend>
+    <exec_depend>robot_state_controller</exec_depend>
+    <exec_depend>test</exec_depend>>
 
-  <export>
-    <build_type>ament_cmake</build_type>
-  </export>
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
 </package>
