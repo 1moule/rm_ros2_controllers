@@ -16,12 +16,11 @@ if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif ()
 
 set(CONTROLLER_INCLUDE_DEPENDS
-        pluginlib
         controller_interface
-        realtime_tools
         rm_ros2_common
-        tf2_kdl
         kdl_parser
+        pluginlib
+        tf2_kdl
         urdf
 )
 
