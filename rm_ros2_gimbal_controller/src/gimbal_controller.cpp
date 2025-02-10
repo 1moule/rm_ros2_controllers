@@ -50,6 +50,8 @@ controller_interface::CallbackReturn GimbalController::on_init()
 
   tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
+  bullet_solver_ = std::make_shared<bullet_solver::BulletSolver>(get_node());
+  tracking_differentiator_ = std::make_shared<NonlinearTrackingDifferentiator<double>>(100.0, 0.001);
 
   // get URDF info about joint
   urdf::Model urdf;
@@ -380,8 +382,10 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
     pitch_vel_des = 0.;
   if (!yaw_des_in_limit_)
     yaw_vel_des = 0.;
+  tracking_differentiator_->update(yaw_des, yaw_vel_des);
+  double yaw_angle_error_td = angles::shortest_angular_distance(yaw_real, tracking_differentiator_->getX1());
   double cmd_pitch = pid_pos_pitch_->computeCommand(pitch_angle_error, period);
-  double cmd_yaw = pid_pos_yaw_->computeCommand(yaw_angle_error, period);
+  double cmd_yaw = pid_pos_yaw_->computeCommand(yaw_angle_error_td, period);
   cmd_pitch = pid_vel_pitch_->computeCommand(cmd_pitch + pitch_vel_des - angular_vel_pitch.y, period);
   cmd_yaw = pid_vel_yaw_->computeCommand(cmd_yaw + yaw_vel_des - angular_vel_yaw.z, period);
   joint_effort_command_interface_[0].get().set_value(cmd_pitch);

@@ -10,6 +10,8 @@
 #include <rm_ros2_msgs/msg/gimbal_pos_state.hpp>
 #include <rm_ros2_msgs/msg/gimbal_cmd.hpp>
 #include <rm_ros2_common/tools/tf_tools.hpp>
+#include <rm_ros2_common/decision/bullet_solver/bullet_solver.hpp>
+#include <rm_ros2_common/decision/trajectory_planner.hpp>
 #include <realtime_tools/realtime_buffer.hpp>
 #include <semantic_components/imu_sensor.hpp>
 #include <control_toolbox/pid_ros.hpp>
@@ -98,6 +100,8 @@ private:
   bool yaw_des_in_limit_ = false;
   bool has_imu_ = false;
   std::string gimbal_des_frame_id_{};
+  std::shared_ptr<bullet_solver::BulletSolver> bullet_solver_;
+  std::shared_ptr<NonlinearTrackingDifferentiator<double>> tracking_differentiator_;
 };
 }  // namespace rm_ros2_gimbal_controller
 #endif  // GIMBAL_CONTROLLER_HPP
