@@ -284,9 +284,7 @@ void GimbalController::track(const rclcpp::Time& time)
     // double yaw_compute = yaw_real;
     // double pitch_compute = -pitch_real;
     geometry_msgs::msg::Point target_pos = track_data_->position;
-    geometry_msgs::msg::Vector3 target_vel{};
-    // if (data_track_.id != 12)
-    //   target_vel = data_track_.velocity;
+    geometry_msgs::msg::Vector3 target_vel = track_data_->velocity;
     try
     {
       if (!track_data_->header.frame_id.empty())
@@ -311,8 +309,6 @@ void GimbalController::track(const rclcpp::Time& time)
     // target_vel.z -= chassis_vel_->linear_->z();
     bullet_solver_->selectTarget(target_pos, target_vel, cmd_gimbal_->bullet_speed, yaw, track_data_->v_yaw,
                                  track_data_->radius_1, track_data_->radius_2, track_data_->dz, track_data_->id);
-    // bullet_solver_->judgeShootBeforehand(time, track_data_.v_yaw);
-    //
     // if (publish_rate_ > 0.0 && last_publish_time_ + ros::Duration(1.0 / publish_rate_) < time)
     // {
     //   if (error_pub_->trylock())
@@ -328,7 +324,6 @@ void GimbalController::track(const rclcpp::Time& time)
     //   bullet_solver_->bulletModelPub(odom2pitch_, time);
     //   last_publish_time_ = time;
     // }
-    //
     if (bullet_solver_->solve())
       setDes(time, bullet_solver_->getYaw(), bullet_solver_->getPitch());
     else
@@ -454,6 +449,12 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
   {
     pitch_vel_des = cmd_gimbal_->rate_pitch;
     yaw_vel_des = cmd_gimbal_->rate_yaw;
+    tracking_differentiator_->update(yaw_des, yaw_vel_des);
+  }
+  else if (state_ == TRACK)
+  {
+    if (track_data_ != nullptr)
+      bullet_solver_->getYawVelDes(yaw_vel_des);
     tracking_differentiator_->update(yaw_des, yaw_vel_des);
   }
   else if (state_ == TRAJ)
