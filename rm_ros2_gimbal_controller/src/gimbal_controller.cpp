@@ -21,6 +21,8 @@ controller_interface::CallbackReturn GimbalController::on_init()
   state_interface_types_ = auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
   publish_rate_ = auto_declare<double>("publish_rate", 100.0);
   b_ = auto_declare<double>("b", 0.0);
+  r_ = auto_declare<double>("r", 100.0);
+  h_ = auto_declare<double>("h", 0.001);
   if (get_node()->has_parameter("imu_name"))
   {
     has_imu_ = true;
@@ -51,7 +53,7 @@ controller_interface::CallbackReturn GimbalController::on_init()
   tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
   bullet_solver_ = std::make_shared<bullet_solver::BulletSolver>(get_node());
-  tracking_differentiator_ = std::make_shared<NonlinearTrackingDifferentiator<double>>(100.0, 0.001);
+  tracking_differentiator_ = std::make_shared<NonlinearTrackingDifferentiator<double>>(r_, h_);
 
   // get URDF info about joint
   urdf::Model urdf;
@@ -377,12 +379,17 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
   {
     pitch_vel_des = cmd_gimbal_->rate_pitch;
     yaw_vel_des = cmd_gimbal_->rate_yaw;
+    tracking_differentiator_->update(yaw_des, yaw_vel_des);
+  }
+  else if (state_ == TRAJ)
+  {
+    tracking_differentiator_->update(yaw_des);
+    yaw_vel_des = tracking_differentiator_->getX2();
   }
   if (!pitch_des_in_limit_)
     pitch_vel_des = 0.;
   if (!yaw_des_in_limit_)
     yaw_vel_des = 0.;
-  tracking_differentiator_->update(yaw_des, yaw_vel_des);
   double yaw_angle_error_td = angles::shortest_angular_distance(yaw_real, tracking_differentiator_->getX1());
   double cmd_pitch = pid_pos_pitch_->computeCommand(pitch_angle_error, period);
   double cmd_yaw = pid_pos_yaw_->computeCommand(yaw_angle_error_td, period);
@@ -412,6 +419,8 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
       yaw_rt_pos_state_pub_->msg_.error = yaw_angle_error;
       yaw_rt_pos_state_pub_->msg_.set_point = yaw_des;
       yaw_rt_pos_state_pub_->msg_.set_point_dot = yaw_vel_des;
+      yaw_rt_pos_state_pub_->msg_.td_set_point = tracking_differentiator_->getX1();
+      yaw_rt_pos_state_pub_->msg_.td_set_point_dot = tracking_differentiator_->getX2();
       yaw_rt_pos_state_pub_->msg_.process_value = yaw_real;
       yaw_rt_pos_state_pub_->msg_.command = cmd_yaw;
       yaw_rt_pos_state_pub_->unlockAndPublish();

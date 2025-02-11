@@ -23,35 +23,25 @@ class GimbalController : public controller_interface::ControllerInterface
 {
 public:
   GimbalController();
-
   controller_interface::InterfaceConfiguration command_interface_configuration() const override;
-
   controller_interface::InterfaceConfiguration state_interface_configuration() const override;
-
   controller_interface::return_type update(const rclcpp::Time& time, const rclcpp::Duration& period) override;
-
   controller_interface::CallbackReturn on_init() override;
-
   controller_interface::CallbackReturn on_configure(const rclcpp_lifecycle::State& previous_state) override;
-
   controller_interface::CallbackReturn on_activate(const rclcpp_lifecycle::State& previous_state) override;
 
 private:
   void rate(const rclcpp::Time& time, const rclcpp::Duration& period);
-
   void traj(const rclcpp::Time& time);
-
   void setDes(const rclcpp::Time& time, double yaw_des, double pitch_des);
-
   static bool setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
                               const urdf::JointConstSharedPtr& joint_urdf);
-
   double frictionFeedforward() const;
-
   void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period);
 
   //  hardware interface
   std::string imu_name_;
+  std::shared_ptr<semantic_components::IMUSensor> imu_sensor_;
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;
   std::vector<std::string> state_interface_types_;
@@ -65,7 +55,6 @@ private:
       state_interface_map_ = { { "position", &joint_position_state_interface_ },
                                { "velocity", &joint_velocity_state_interface_ },
                                { "effort", &joint_effort_state_interface_ } };
-  std::shared_ptr<semantic_components::IMUSensor> imu_sensor_;
 
   //  ROS interface
   std::shared_ptr<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>> pitch_rt_pos_state_pub_,
@@ -88,12 +77,11 @@ private:
   {
     RATE,
     TRACK,
-    DIRECT,
     TRAJ
   };
   int state_ = RATE;
   double publish_rate_{};
-  double b_{};
+  double b_{}, r_{}, h_{};
   bool state_changed_{};
   bool start_ = true;
   bool pitch_des_in_limit_ = false;
