@@ -346,60 +346,46 @@ void GimbalController::traj(const rclcpp::Time& time)
 
 void GimbalController::setDes(const rclcpp::Time& time, double yaw_des, double pitch_des)
 {
-  tf2::Quaternion odom2base, odom2gimbal_des;
+  tf2::Quaternion odom2base, odom2gimbal_des, base2new_des;
   tf2::fromMsg(odom2base_.transform.rotation, odom2base);
   odom2gimbal_des.setRPY(0, pitch_des, yaw_des);
   tf2::Quaternion base2gimbal_des = odom2base.inverse() * odom2gimbal_des;
   double roll_temp, base2gimbal_current_des_pitch, base2gimbal_current_des_yaw;
   quatToRPY(toMsg(base2gimbal_des), roll_temp, base2gimbal_current_des_pitch, base2gimbal_current_des_yaw);
   double pitch_real_des, yaw_real_des;
-
-  pitch_des_in_limit_ = setDesIntoLimit(pitch_real_des, pitch_des, base2gimbal_current_des_pitch, joint_urdf_[0]);
-  if (!pitch_des_in_limit_)
-  {
-    double yaw_temp;
-    tf2::Quaternion base2new_des;
-    double upper_limit = joint_urdf_[0]->limits ? joint_urdf_[0]->limits->upper : 1e16;
-    double lower_limit = joint_urdf_[0]->limits ? joint_urdf_[0]->limits->lower : -1e16;
-    base2new_des.setRPY(0,
-                        std::abs(angles::shortest_angular_distance(base2gimbal_current_des_pitch, upper_limit)) <
-                                std::abs(angles::shortest_angular_distance(base2gimbal_current_des_pitch, lower_limit)) ?
-                            upper_limit :
-                            lower_limit,
-                        base2gimbal_current_des_yaw);
-    quatToRPY(toMsg(odom2base * base2new_des), roll_temp, pitch_real_des, yaw_temp);
-  }
-  yaw_des_in_limit_ = setDesIntoLimit(yaw_real_des, yaw_des, base2gimbal_current_des_yaw, joint_urdf_[1]);
-  if (!yaw_des_in_limit_)
-  {
-    double pitch_temp;
-    tf2::Quaternion base2new_des;
-    double upper_limit = joint_urdf_[1]->limits ? joint_urdf_[1]->limits->upper : 1e16;
-    double lower_limit = joint_urdf_[1]->limits ? joint_urdf_[1]->limits->lower : -1e16;
-    base2new_des.setRPY(0, base2gimbal_current_des_pitch,
-                        std::abs(angles::shortest_angular_distance(base2gimbal_current_des_yaw, upper_limit)) <
-                                std::abs(angles::shortest_angular_distance(base2gimbal_current_des_yaw, lower_limit)) ?
-                            upper_limit :
-                            lower_limit);
-    quatToRPY(toMsg(odom2base * base2new_des), roll_temp, pitch_temp, yaw_real_des);
-  }
+  pitch_des_in_limit_ = setDesIntoLimit(pitch_real_des, pitch_des, base2gimbal_current_des_pitch,
+                                        base2gimbal_current_des_yaw, joint_urdf_[0], base2new_des);
+  yaw_des_in_limit_ = setDesIntoLimit(yaw_real_des, yaw_des, base2gimbal_current_des_yaw, base2gimbal_current_des_pitch,
+                                      joint_urdf_[1], base2new_des);
+  if (!pitch_des_in_limit_ || !yaw_des_in_limit_)
+    quatToRPY(toMsg(odom2base * base2new_des), roll_temp, pitch_real_des, yaw_real_des);
   createQuaternionMsgFromRollPitchYaw(odom2gimbal_des_.transform.rotation, 0., pitch_real_des, yaw_real_des);
   odom2gimbal_des_.header.stamp = time;
   tf_handler_->setTransform(odom2gimbal_des_, "rm_gimbal_controllers");
 }
 
 bool GimbalController::setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
-                                       const urdf::JointConstSharedPtr& joint_urdf)
+                                       double temp, const urdf::JointConstSharedPtr& joint_urdf,
+                                       tf2::Quaternion& base2new_des)
 {
   double upper_limit = joint_urdf->limits ? joint_urdf->limits->upper : 1e16;
   double lower_limit = joint_urdf->limits ? joint_urdf->limits->lower : -1e16;
   if ((base2gimbal_current_des <= upper_limit && base2gimbal_current_des >= lower_limit) ||
       (angles::two_pi_complement(base2gimbal_current_des) <= upper_limit &&
        angles::two_pi_complement(base2gimbal_current_des) >= lower_limit))
+  {
     real_des = current_des;
+    return true;
+  }
+  const double new_des = std::abs(angles::shortest_angular_distance(base2gimbal_current_des, upper_limit)) <
+                                 std::abs(angles::shortest_angular_distance(base2gimbal_current_des, lower_limit)) ?
+                             upper_limit :
+                             lower_limit;
+  if (joint_urdf->name.find("pitch") != std::string::npos)
+    base2new_des.setRPY(0, new_des, temp);
   else
-    return false;
-  return true;
+    base2new_des.setRPY(0, temp, new_des);
+  return false;
 }
 
 double GimbalController::frictionFeedforward() const

@@ -36,8 +36,8 @@ private:
   void track(const rclcpp::Time& time);
   void traj(const rclcpp::Time& time);
   void setDes(const rclcpp::Time& time, double yaw_des, double pitch_des);
-  static bool setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
-                              const urdf::JointConstSharedPtr& joint_urdf);
+  static bool setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des, double temp,
+                              const urdf::JointConstSharedPtr& joint_urdf, tf2::Quaternion& base2new_des);
   double frictionFeedforward() const;
   void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period);
 
