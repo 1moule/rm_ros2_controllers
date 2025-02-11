@@ -136,11 +136,19 @@ controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp
   };
   cmd_gimbal_sub_ = get_node()->create_subscription<rm_ros2_msgs::msg::GimbalCmd>(
       "/cmd_gimbal", rclcpp::SystemDefaultsQoS(), cmdGimbalCallback);
+  // odom
   auto odomCallback = [this](const std::shared_ptr<nav_msgs::msg::Odometry> msg) -> void {
     odom_buffer_.writeFromNonRT(msg);
   };
   odom_sub_ =
       get_node()->create_subscription<nav_msgs::msg::Odometry>("/odom", rclcpp::SystemDefaultsQoS(), odomCallback);
+  // track
+  auto trackCallback = [this](const std::shared_ptr<rm_ros2_msgs::msg::TrackData> msg) -> void {
+    track_buffer_.writeFromNonRT(msg);
+  };
+  track_sub_ = get_node()->create_subscription<rm_ros2_msgs::msg::TrackData>("/track", rclcpp::SystemDefaultsQoS(),
+                                                                             trackCallback);
+
   pitch_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
       std::string(get_node()->get_name()) + "/pitch/pos_state", rclcpp::SystemDefaultsQoS());
   yaw_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
@@ -203,6 +211,7 @@ controller_interface::CallbackReturn GimbalController::on_activate(const rclcpp_
 controller_interface::return_type GimbalController::update(const rclcpp::Time& time, const rclcpp::Duration& period)
 {
   cmd_gimbal_ = *cmd_gimbal_buffer_.readFromRT();
+  track_data_ = *track_buffer_.readFromRT();
   odom_ = *odom_buffer_.readFromRT();
   try
   {
@@ -225,12 +234,9 @@ controller_interface::return_type GimbalController::update(const rclcpp::Time& t
       case RATE:
         rate(time, period);
         break;
-      // case TRACK:
-      //     track(time);
-      // break;
-      // case DIRECT:
-      //     direct(time);
-      // break;
+      case TRACK:
+        track(time);
+        break;
       case TRAJ:
         traj(time);
         break;
@@ -261,6 +267,75 @@ void GimbalController::rate(const rclcpp::Time& time, const rclcpp::Duration& pe
     double roll{}, pitch{}, yaw{};
     quatToRPY(odom2gimbal_des_.transform.rotation, roll, pitch, yaw);
     setDes(time, yaw + period.seconds() * cmd_gimbal_->rate_yaw, pitch + period.seconds() * cmd_gimbal_->rate_pitch);
+  }
+}
+
+void GimbalController::track(const rclcpp::Time& time)
+{
+  if (state_changed_)
+  {  // on enter
+    state_changed_ = false;
+    RCLCPP_INFO(get_node()->get_logger(), "[Gimbal] Enter TRACK");
+  }
+  if (track_data_ != nullptr)
+  {
+    double roll_real, pitch_real, yaw_real;
+    quatToRPY(odom2pitch_.transform.rotation, roll_real, pitch_real, yaw_real);
+    // double yaw_compute = yaw_real;
+    // double pitch_compute = -pitch_real;
+    geometry_msgs::msg::Point target_pos = track_data_->position;
+    geometry_msgs::msg::Vector3 target_vel{};
+    // if (data_track_.id != 12)
+    //   target_vel = data_track_.velocity;
+    try
+    {
+      if (!track_data_->header.frame_id.empty())
+      {
+        geometry_msgs::msg::TransformStamped transform =
+            tf_handler_->lookupTransform("odom", track_data_->header.frame_id, track_data_->header.stamp);
+        tf2::doTransform(target_pos, target_pos, transform);
+        tf2::doTransform(target_vel, target_vel, transform);
+      }
+    }
+    catch (tf2::TransformException& ex)
+    {
+      RCLCPP_WARN_ONCE(get_node()->get_logger(), "%s", ex.what());
+    }
+
+    double yaw = fmod(track_data_->yaw + track_data_->v_yaw * ((time - track_data_->header.stamp).seconds()), M_2_PI);
+    target_pos.x += target_vel.x * (time - track_data_->header.stamp).seconds() - odom2pitch_.transform.translation.x;
+    target_pos.y += target_vel.y * (time - track_data_->header.stamp).seconds() - odom2pitch_.transform.translation.y;
+    target_pos.z += target_vel.z * (time - track_data_->header.stamp).seconds() - odom2pitch_.transform.translation.z;
+    // target_vel.x -= chassis_vel_->linear_->x();
+    // target_vel.y -= chassis_vel_->linear_->y();
+    // target_vel.z -= chassis_vel_->linear_->z();
+    bullet_solver_->selectTarget(target_pos, target_vel, cmd_gimbal_->bullet_speed, yaw, track_data_->v_yaw,
+                                 track_data_->radius_1, track_data_->radius_2, track_data_->dz, track_data_->id);
+    // bullet_solver_->judgeShootBeforehand(time, track_data_.v_yaw);
+    //
+    // if (publish_rate_ > 0.0 && last_publish_time_ + ros::Duration(1.0 / publish_rate_) < time)
+    // {
+    //   if (error_pub_->trylock())
+    //   {
+    //     double error =
+    //         bullet_solver_->getGimbalError(target_pos, target_vel, track_data_.yaw, track_data_.v_yaw,
+    //                                        track_data_.radius_1, track_data_.radius_2, track_data_.dz,
+    //                                        track_data_.armors_num, yaw_compute, pitch_compute, cmd_gimbal_.bullet_speed);
+    //     error_pub_->msg_.stamp = time;
+    //     error_pub_->msg_.error = solve_success ? error : 1.0;
+    //     error_pub_->unlockAndPublish();
+    //   }
+    //   bullet_solver_->bulletModelPub(odom2pitch_, time);
+    //   last_publish_time_ = time;
+    // }
+    //
+    if (bullet_solver_->solve())
+      setDes(time, bullet_solver_->getYaw(), bullet_solver_->getPitch());
+    else
+    {
+      odom2gimbal_des_.header.stamp = time;
+      tf_handler_->setTransform(odom2gimbal_des_, "rm_gimbal_controllers");
+    }
   }
 }
 
