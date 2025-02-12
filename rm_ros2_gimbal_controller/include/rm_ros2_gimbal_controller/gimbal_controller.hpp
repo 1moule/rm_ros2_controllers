@@ -68,6 +68,7 @@ private:
   std::shared_ptr<control_toolbox::PidROS> pid_pos_pitch_, pid_vel_pitch_, pid_pos_yaw_, pid_vel_yaw_;
   std::shared_ptr<TfHandler> tf_handler_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
+  std::shared_ptr<geometry_msgs::msg::Twist> chassis_vel_;
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_;
   rclcpp::Subscription<rm_ros2_msgs::msg::GimbalCmd>::SharedPtr cmd_gimbal_sub_;
   rclcpp::Subscription<rm_ros2_msgs::msg::TrackData>::SharedPtr track_sub_;

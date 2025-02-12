@@ -52,6 +52,7 @@ controller_interface::CallbackReturn GimbalController::on_init()
 
   tf_handler_ = std::make_shared<TfHandler>(get_node());
   tf_broadcaster_ = std::make_shared<TfRtBroadcaster>(get_node());
+  chassis_vel_ = std::make_shared<geometry_msgs::msg::Twist>();
   bullet_solver_ = std::make_shared<bullet_solver::BulletSolver>(get_node());
   tracking_differentiator_ = std::make_shared<NonlinearTrackingDifferentiator<double>>(r_, h_);
 
@@ -215,8 +216,13 @@ controller_interface::return_type GimbalController::update(const rclcpp::Time& t
   odom_ = *odom_buffer_.readFromRT();
   try
   {
-    odom2pitch_ = tf_handler_->lookupTransform("odom", joint_urdf_[0]->child_link_name);
-    odom2base_ = tf_handler_->lookupTransform("odom", joint_urdf_[1]->parent_link_name);
+    odom2pitch_ = tf_handler_->lookupTransform("odom", joint_urdf_[0]->child_link_name, time);
+    odom2base_ = tf_handler_->lookupTransform("odom", joint_urdf_[1]->parent_link_name, time);
+    if (odom_ != nullptr)
+    {
+      tf2::doTransform(odom_->twist.twist.linear, chassis_vel_->linear, odom2base_);
+      tf2::doTransform(odom_->twist.twist.angular, chassis_vel_->angular, odom2base_);
+    }
   }
   catch (tf2::TransformException& ex)
   {
@@ -243,8 +249,8 @@ controller_interface::return_type GimbalController::update(const rclcpp::Time& t
       default:
         break;
     }
-    moveJoint(time, period);
   }
+  moveJoint(time, period);
   return controller_interface::return_type::OK;
 }
 
@@ -304,9 +310,9 @@ void GimbalController::track(const rclcpp::Time& time)
     target_pos.x += target_vel.x * (time - track_data_->header.stamp).seconds() - odom2pitch_.transform.translation.x;
     target_pos.y += target_vel.y * (time - track_data_->header.stamp).seconds() - odom2pitch_.transform.translation.y;
     target_pos.z += target_vel.z * (time - track_data_->header.stamp).seconds() - odom2pitch_.transform.translation.z;
-    // target_vel.x -= chassis_vel_->linear_->x();
-    // target_vel.y -= chassis_vel_->linear_->y();
-    // target_vel.z -= chassis_vel_->linear_->z();
+    target_vel.x -= chassis_vel_->linear.x;
+    target_vel.y -= chassis_vel_->linear.y;
+    target_vel.z -= chassis_vel_->linear.z;
     bullet_solver_->selectTarget(target_pos, target_vel, cmd_gimbal_->bullet_speed, yaw, track_data_->v_yaw,
                                  track_data_->radius_1, track_data_->radius_2, track_data_->dz, track_data_->id);
     // if (publish_rate_ > 0.0 && last_publish_time_ + ros::Duration(1.0 / publish_rate_) < time)
@@ -433,8 +439,11 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
   double pitch_vel_des = 0, yaw_vel_des = 0.;
   if (state_ == RATE)
   {
-    pitch_vel_des = cmd_gimbal_->rate_pitch;
-    yaw_vel_des = cmd_gimbal_->rate_yaw;
+    if (cmd_gimbal_ != nullptr)
+    {
+      pitch_vel_des = cmd_gimbal_->rate_pitch;
+      yaw_vel_des = cmd_gimbal_->rate_yaw;
+    }
     tracking_differentiator_->update(yaw_des, yaw_vel_des);
   }
   else if (state_ == TRACK)
