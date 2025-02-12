@@ -130,25 +130,24 @@ controller_interface::InterfaceConfiguration GimbalController::state_interface_c
 
 controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp_lifecycle::State&)
 {
-  // cmd gimbal
+  // subscriber
   auto cmdGimbalCallback = [this](const std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> msg) -> void {
     cmd_gimbal_buffer_.writeFromNonRT(msg);
   };
   cmd_gimbal_sub_ = get_node()->create_subscription<rm_ros2_msgs::msg::GimbalCmd>(
       "/cmd_gimbal", rclcpp::SystemDefaultsQoS(), cmdGimbalCallback);
-  // odom
   auto odomCallback = [this](const std::shared_ptr<nav_msgs::msg::Odometry> msg) -> void {
     odom_buffer_.writeFromNonRT(msg);
   };
   odom_sub_ =
       get_node()->create_subscription<nav_msgs::msg::Odometry>("/odom", rclcpp::SystemDefaultsQoS(), odomCallback);
-  // track
   auto trackCallback = [this](const std::shared_ptr<rm_ros2_msgs::msg::TrackData> msg) -> void {
     track_buffer_.writeFromNonRT(msg);
   };
   track_sub_ = get_node()->create_subscription<rm_ros2_msgs::msg::TrackData>("/track", rclcpp::SystemDefaultsQoS(),
                                                                              trackCallback);
 
+  // publisher
   pitch_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
       std::string(get_node()->get_name()) + "/pitch/pos_state", rclcpp::SystemDefaultsQoS());
   yaw_pos_state_pub_ = get_node()->create_publisher<rm_ros2_msgs::msg::GimbalPosState>(
@@ -158,6 +157,7 @@ controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp
   yaw_rt_pos_state_pub_ =
       std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(yaw_pos_state_pub_);
 
+  // dynamic reconfigure
   auto on_parameter_event_callback = [this](const std::vector<rclcpp::Parameter>& parameters) {
     rcl_interfaces::msg::SetParametersResult result;
     result.successful = true;
