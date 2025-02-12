@@ -62,20 +62,20 @@ private:
   std::shared_ptr<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>> pitch_rt_pos_state_pub_,
       yaw_rt_pos_state_pub_;
   std::shared_ptr<rclcpp::Publisher<rm_ros2_msgs::msg::GimbalPosState>> pitch_pos_state_pub_, yaw_pos_state_pub_;
+  std::shared_ptr<control_toolbox::PidROS> pid_pos_pitch_, pid_vel_pitch_, pid_pos_yaw_, pid_vel_yaw_;
+  std::shared_ptr<geometry_msgs::msg::Twist> chassis_vel_;
   std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd> cmd_gimbal_;
   std::shared_ptr<rm_ros2_msgs::msg::TrackData> track_data_;
   std::shared_ptr<nav_msgs::msg::Odometry> odom_;
-  std::shared_ptr<control_toolbox::PidROS> pid_pos_pitch_, pid_vel_pitch_, pid_pos_yaw_, pid_vel_yaw_;
   std::shared_ptr<TfHandler> tf_handler_;
   std::shared_ptr<TfRtBroadcaster> tf_broadcaster_;
-  std::shared_ptr<geometry_msgs::msg::Twist> chassis_vel_;
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_;
-  rclcpp::Subscription<rm_ros2_msgs::msg::GimbalCmd>::SharedPtr cmd_gimbal_sub_;
-  rclcpp::Subscription<rm_ros2_msgs::msg::TrackData>::SharedPtr track_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd>> cmd_gimbal_buffer_;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::TrackData>> track_buffer_;
+  rclcpp::Subscription<rm_ros2_msgs::msg::TrackData>::SharedPtr track_sub_;
+  rclcpp::Subscription<rm_ros2_msgs::msg::GimbalCmd>::SharedPtr cmd_gimbal_sub_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_;
   realtime_tools::RealtimeBuffer<std::shared_ptr<nav_msgs::msg::Odometry>> odom_buffer_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::TrackData>> track_buffer_;
+  realtime_tools::RealtimeBuffer<std::shared_ptr<rm_ros2_msgs::msg::GimbalCmd>> cmd_gimbal_buffer_;
   geometry_msgs::msg::TransformStamped odom2gimbal_des_, odom2pitch_, odom2base_, last_odom2base_;
   std::vector<urdf::JointConstSharedPtr> joint_urdf_;
 
