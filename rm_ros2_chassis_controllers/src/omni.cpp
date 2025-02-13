@@ -14,29 +14,26 @@ OmniController::OmniController() : ChassisBase::ChassisBase()
 controller_interface::CallbackReturn OmniController::on_init()
 {
   ChassisBase::on_init();
-  left_front_wheel_pos_ = auto_declare<std::vector<double>>("left_front_wheel_pos", left_front_wheel_pos_);
-  right_front_wheel_pos_ = auto_declare<std::vector<double>>("right_front_wheel_pos", right_front_wheel_pos_);
-  left_back_wheel_pos_ = auto_declare<std::vector<double>>("left_back_wheel_pos", left_back_wheel_pos_);
-  right_back_wheel_pos_ = auto_declare<std::vector<double>>("right_back_wheel_pos", right_back_wheel_pos_);
-  wheels_pos_.push_back(left_front_wheel_pos_);
-  wheels_pos_.push_back(right_front_wheel_pos_);
-  wheels_pos_.push_back(left_back_wheel_pos_);
-  wheels_pos_.push_back(right_back_wheel_pos_);
-  roller_angles_ = auto_declare<std::vector<double>>("roller_angles", roller_angles_);
-  radius_ = auto_declare<double>("wheel_radius", radius_);
-  p_ = auto_declare<double>("p", p_);
-  chassis2joints_.resize(wheels_pos_.size(), 3);
-  for (size_t i = 0; i < wheels_pos_.size(); i++)
+  wheel_names_ = auto_declare<std::vector<std::string>>("wheels.name", wheel_names_);
+  radius_ = auto_declare<double>("wheels.radius", radius_);
+  p_ = auto_declare<double>("wheels.p", p_);
+  chassis2joints_.resize(wheel_names_.size(), 3);
+  size_t i = 0;
+  for (const auto& wheel_name : wheel_names_)
   {
+    std::cout << wheel_name << std::endl;
     // Ref: Modern Robotics, Chapter 13.2: Omnidirectional Wheeled Mobile Robots
     Eigen::MatrixXd direction(1, 2), in_wheel(2, 2), in_chassis(2, 3);
-    double beta = wheels_pos_[i][2];
-    double roller_angle = roller_angles_[i];
+    std::vector<double> wheel_pos = auto_declare<std::vector<double>>("wheels." + wheel_name + ".pos", { 0., 0., 0. });
+    double beta = wheel_pos[2];
+    double roller_angle = auto_declare<double>("wheels." + wheel_name + ".roller_angle", 0.);
     direction << 1, tan(roller_angle);
     in_wheel << cos(beta), sin(beta), -sin(beta), cos(beta);
-    in_chassis << -wheels_pos_[i][1], 1., 0., wheels_pos_[i][0], 0., 1.;
+    in_chassis << -wheel_pos[1], 1., 0., wheel_pos[0], 0., 1.;
     Eigen::MatrixXd chassis2joint = 1. / radius_ * direction * in_wheel * in_chassis;
     chassis2joints_.block<1, 3>(i, 0) = chassis2joint;
+
+    i++;
   }
   return CallbackReturn::SUCCESS;
 }
@@ -55,8 +52,8 @@ void OmniController::moveJoint()
 
 void OmniController::odometry()
 {
-  Eigen::VectorXd vel_joints(wheels_pos_.size());
-  for (size_t i = 0; i < wheels_pos_.size(); i++)
+  Eigen::VectorXd vel_joints(wheel_names_.size());
+  for (size_t i = 0; i < wheel_names_.size(); i++)
     vel_joints[i] = joint_velocity_state_interface_[i].get().get_value();
   Eigen::Vector3d vel_chassis =
       (chassis2joints_.transpose() * chassis2joints_).inverse() * chassis2joints_.transpose() * vel_joints;

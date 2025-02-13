@@ -11,7 +11,7 @@
 
 namespace rm_ros2_chassis_controllers
 {
-class OmniController : public ChassisBase
+class OmniController final : public ChassisBase
 {
 public:
   OmniController();
@@ -20,9 +20,7 @@ public:
 private:
   void moveJoint() override;
   void odometry() override;
-  std::vector<double> left_front_wheel_pos_, left_back_wheel_pos_, right_front_wheel_pos_, right_back_wheel_pos_;
-  std::vector<std::vector<double>> wheels_pos_;
-  std::vector<double> roller_angles_;
+  std::vector<std::string> wheel_names_;
   Eigen::MatrixXd chassis2joints_;
   double radius_{}, p_{};
 };
