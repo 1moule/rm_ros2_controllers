@@ -159,28 +159,7 @@ controller_interface::CallbackReturn GimbalController::on_configure(const rclcpp
       std::make_shared<realtime_tools::RealtimePublisher<rm_ros2_msgs::msg::GimbalPosState>>(yaw_pos_state_pub_);
 
   // dynamic reconfigure
-  auto on_parameter_event_callback = [this](const std::vector<rclcpp::Parameter>& parameters) {
-    rcl_interfaces::msg::SetParametersResult result;
-    result.successful = true;
-    for (auto& parameter : parameters)
-    {
-      const std::string& param_name = parameter.get_name();
-      try
-      {
-        if (param_name == "b")
-        {
-          b_ = parameter.get_value<double>();
-        }
-      }
-      catch (const rclcpp::exceptions::InvalidParameterTypeException& e)
-      {
-        RCLCPP_INFO_STREAM(get_node()->get_logger(), "Please use the right type: " << e.what());
-      }
-    }
-    return result;
-  };
-  parameter_callback_ =
-      get_node()->get_node_parameters_interface()->add_on_set_parameters_callback(on_parameter_event_callback);
+  setParameterEventCallBack();
 
   return CallbackReturn::SUCCESS;
 }
@@ -497,6 +476,34 @@ void GimbalController::moveJoint(const rclcpp::Time& time, const rclcpp::Duratio
       yaw_rt_pos_state_pub_->unlockAndPublish();
     }
   }
+}
+
+void GimbalController::setParameterEventCallBack()
+{
+  auto on_parameter_event_callback = [this](const std::vector<rclcpp::Parameter>& parameters) {
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+    for (auto& parameter : parameters)
+    {
+      const std::string& param_name = parameter.get_name();
+      try
+      {
+        if (param_name == "b")
+          b_ = parameter.get_value<double>();
+        else if (param_name == "r")
+          r_ = parameter.get_value<double>();
+        else if (param_name == "h")
+          h_ = parameter.get_value<double>();
+      }
+      catch (const rclcpp::exceptions::InvalidParameterTypeException& e)
+      {
+        RCLCPP_INFO_STREAM(get_node()->get_logger(), "Please use the right type: " << e.what());
+      }
+    }
+    return result;
+  };
+  parameter_callback_ =
+      get_node()->get_node_parameters_interface()->add_on_set_parameters_callback(on_parameter_event_callback);
 }
 }  // namespace rm_ros2_gimbal_controller
 

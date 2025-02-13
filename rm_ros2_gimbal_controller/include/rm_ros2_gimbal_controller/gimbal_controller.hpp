@@ -40,6 +40,7 @@ private:
                               const urdf::JointConstSharedPtr& joint_urdf, tf2::Quaternion& base2new_des);
   double frictionFeedforward() const;
   void moveJoint(const rclcpp::Time& time, const rclcpp::Duration& period);
+  void setParameterEventCallBack();
 
   //  hardware interface
   std::string imu_name_;
