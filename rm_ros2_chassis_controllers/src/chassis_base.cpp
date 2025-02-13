@@ -187,7 +187,7 @@ controller_interface::return_type ChassisBase::update(const rclcpp::Time& time, 
     vel_cmd_->z = ramp_w_->output();
   }
   updateOdom(time, period);
-  moveJoint();
+  moveJoint(period);
 
   return controller_interface::return_type::OK;
 }

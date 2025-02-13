@@ -36,7 +36,7 @@ protected:
   void tfVelToBase(const std::string& from);
   void updateOdom(const rclcpp::Time& time, const rclcpp::Duration& period);
   virtual void odometry() = 0;
-  virtual void moveJoint() = 0;
+  virtual void moveJoint(const rclcpp::Duration& period) = 0;
 
   std::vector<std::string> joint_names_;
   std::vector<std::string> command_interface_types_;

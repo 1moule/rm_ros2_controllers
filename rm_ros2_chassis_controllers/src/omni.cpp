@@ -33,20 +33,25 @@ controller_interface::CallbackReturn OmniController::on_init()
     Eigen::MatrixXd chassis2joint = 1. / radius_ * direction * in_wheel * in_chassis;
     chassis2joints_.block<1, 3>(i, 0) = chassis2joint;
 
+    pid_joints_.push_back(std::make_shared<control_toolbox::PidROS>(
+        get_node()->get_node_base_interface(), get_node()->get_node_logging_interface(),
+        get_node()->get_node_parameters_interface(), get_node()->get_node_topics_interface(), "wheels", true));
+    pid_joints_.back()->initPid();
+
     i++;
   }
   return CallbackReturn::SUCCESS;
 }
 
-void OmniController::moveJoint()
+void OmniController::moveJoint(const rclcpp::Duration& period)
 {
   Eigen::Vector3d vel_chassis;
   vel_chassis << vel_cmd_->z, vel_cmd_->x, vel_cmd_->y;
   Eigen::VectorXd vel_joints = chassis2joints_ * vel_chassis;
   for (size_t i = 0; i < joint_effort_command_interface_.size(); i++)
   {
-    joint_effort_command_interface_[i].get().set_value(
-        p_ * (vel_joints(i) - joint_velocity_state_interface_[i].get().get_value()));
+    pid_joints_[i]->computeCommand(vel_joints(i) - joint_velocity_state_interface_[i].get().get_value(), period);
+    joint_effort_command_interface_[i].get().set_value(pid_joints_[i]->getCurrentCmd());
   }
 }
 
