@@ -21,7 +21,6 @@ controller_interface::CallbackReturn OmniController::on_init()
   size_t i = 0;
   for (const auto& wheel_name : wheel_names_)
   {
-    std::cout << wheel_name << std::endl;
     // Ref: Modern Robotics, Chapter 13.2: Omnidirectional Wheeled Mobile Robots
     Eigen::MatrixXd direction(1, 2), in_wheel(2, 2), in_chassis(2, 3);
     std::vector<double> wheel_pos = auto_declare<std::vector<double>>("wheels." + wheel_name + ".pos", { 0., 0., 0. });
